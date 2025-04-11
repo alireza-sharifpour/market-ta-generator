@@ -1,0 +1,19 @@
+# Environment variables
+.env
+
+# Virtual Environment
+.venv/
+venv/
+*/.venv/
+*/venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Docker cache / build artifacts (optional but good)
+docker-compose.override.yml
+
+.cursor/
+docs/
