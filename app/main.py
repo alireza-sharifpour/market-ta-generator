@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.endpoints.analysis import router as analysis_router
 from app.utils.logging_config import setup_logging
 
 # Initialize logging
@@ -29,6 +30,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Include routers
+app.include_router(analysis_router, prefix="/api/v1")
 
 
 @app.get("/")
