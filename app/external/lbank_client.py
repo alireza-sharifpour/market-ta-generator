@@ -1,11 +1,8 @@
-import base64
 import hashlib
 import hmac
 import logging
 import time
-import urllib.parse
 import uuid
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urljoin
 
@@ -64,27 +61,71 @@ def _create_signature(params: Dict[str, Any], secret_key: str) -> str:
     return signature
 
 
+def _calculate_past_timestamp(timeframe: str, periods: int = 50) -> int:
+    """
+    Calculate a timestamp in the past based on the timeframe and number of periods.
+    This helps us retrieve historical data from LBank API.
+
+    Args:
+        timeframe: The timeframe of candles (e.g., "hour1", "day1")
+        periods: Number of periods to go back
+
+    Returns:
+        UNIX timestamp (seconds) for the calculated past time
+    """
+    current_time = time.time()
+    seconds_to_subtract = 0
+
+    # Map timeframe to seconds
+    if timeframe == "minute1":
+        seconds_to_subtract = 60 * periods
+    elif timeframe == "minute5":
+        seconds_to_subtract = 300 * periods
+    elif timeframe == "minute15":
+        seconds_to_subtract = 900 * periods
+    elif timeframe == "minute30":
+        seconds_to_subtract = 1800 * periods
+    elif timeframe == "hour1":
+        seconds_to_subtract = 3600 * periods
+    elif timeframe == "hour4":
+        seconds_to_subtract = 14400 * periods
+    elif timeframe == "hour8":
+        seconds_to_subtract = 28800 * periods
+    elif timeframe == "hour12":
+        seconds_to_subtract = 43200 * periods
+    elif timeframe == "day1":
+        seconds_to_subtract = 86400 * periods
+    elif timeframe == "week1":
+        seconds_to_subtract = 604800 * periods
+    elif timeframe == "month1":
+        seconds_to_subtract = 2592000 * periods
+    else:
+        # Default to 2 days if timeframe is unknown
+        seconds_to_subtract = 172800
+
+    # Calculate past timestamp
+    past_timestamp = int(current_time - seconds_to_subtract)
+    return past_timestamp
+
+
 def fetch_ohlcv(
     pair: str, timeframe: Optional[str] = None, limit: Optional[int] = None
 ) -> List[List[Union[int, float]]]:
     """
     Fetches OHLCV (Open, High, Low, Close, Volume) data from LBank API.
 
-    Note: Despite what the LBank API documentation suggests, their kline endpoint
-    seems to only return a single candle (the most recent one) regardless of the
-    'size' parameter value. This function will still attempt to request multiple
-    candles as specified, but expect to receive only one.
+    LBank API requires using a past timestamp to retrieve historical data. This function
+    automatically calculates an appropriate past timestamp based on the timeframe
+    and requested limit to ensure multiple candles are returned.
 
     Args:
         pair: Trading pair symbol (e.g., "eth_btc")
         timeframe: Time interval for each candle. Options include:
                   minute1, minute5, minute15, minute30, hour1, hour4, hour8, hour12, day1, week1, month1
         limit: Number of candles to fetch (1-2000 for v2 API)
-             Note: The API currently ignores this parameter and returns only 1 candle.
 
     Returns:
         List of lists with format [timestamp, open, high, low, close, volume]
-        Currently only contains a single candle per LBank API behavior.
 
     Raises:
         LBankAPIError: If the LBank API returns an error
@@ -124,12 +165,20 @@ def fetch_ohlcv(
     # Construct API URL and parameters
     url = urljoin(LBANK_API_BASE_URL, LBANK_KLINE_ENDPOINT)
 
+    # Calculate past timestamp to get historical data
+    # We no longer use a buffer multiplier - instead, we go back exactly 'limit' periods
+    # This makes the behavior more intuitive - if you request 10 daily candles, you get data from 10 days ago
+    past_timestamp = _calculate_past_timestamp(timeframe_to_use, limit_to_use)
+    logger.info(
+        f"Using past timestamp {past_timestamp} to fetch historical data (exactly {limit_to_use} {timeframe_to_use} periods ago)"
+    )
+
     # Basic parameters for the request
     params: Dict[str, Union[str, int]] = {
         "symbol": pair,
-        "size": limit_to_use,  # Note: API currently ignores this
+        "size": limit_to_use,
         "type": timeframe_to_use,
-        "time": int(time.time()),
+        "time": past_timestamp,  # Using past timestamp to get historical data
     }
 
     # Set up authentication headers and parameters
@@ -180,8 +229,8 @@ def fetch_ohlcv(
         # Log full response for debugging
         logger.info(f"Response status code: {response.status_code}")
         logger.info(
-            f"Response body: {response.text[:500]}..."
-        )  # Truncate for log readability
+            f"Response body length: {len(response.text)}"
+        )  # Only log the length to avoid huge logs
 
         # Parse the response
         response_data = response.json()
@@ -202,12 +251,6 @@ def fetch_ohlcv(
                 data = response_data["data"]
                 data_length = len(data) if isinstance(data, list) else 0
 
-                if data_length != limit_to_use and limit_to_use > 1:
-                    logger.warning(
-                        f"LBank API returned {data_length} candles even though {limit_to_use} were requested. "
-                        "This appears to be an API limitation."
-                    )
-
                 logger.info(
                     f"Successfully fetched {data_length} OHLCV entries for {pair} (v2 API)"
                 )
@@ -225,7 +268,14 @@ def fetch_ohlcv(
                         logger.error(error_msg)
                         raise LBankAPIError(error_msg)
 
-                return data
+                # Sort the data by timestamp in chronological order (oldest to newest)
+                sorted_data = sorted(data, key=lambda x: x[0])
+                result = sorted_data[:limit_to_use]
+
+                logger.info(
+                    f"Returning {len(result)} candles in chronological order (oldest first)"
+                )
+                return result
             else:
                 error_msg = "LBank API response does not contain data field"
                 logger.error(error_msg)
@@ -235,12 +285,6 @@ def fetch_ohlcv(
         elif isinstance(response_data, list):
             data = response_data
             data_length = len(data)
-
-            if data_length != limit_to_use and limit_to_use > 1:
-                logger.warning(
-                    f"LBank API returned {data_length} candles even though {limit_to_use} were requested. "
-                    "This appears to be an API limitation."
-                )
 
             logger.info(
                 f"Successfully fetched {data_length} OHLCV entries for {pair} (v1 API)"
@@ -253,7 +297,14 @@ def fetch_ohlcv(
                     logger.error(error_msg)
                     raise LBankAPIError(error_msg)
 
-            return data
+            # Sort the data by timestamp in chronological order (oldest to newest)
+            sorted_data = sorted(data, key=lambda x: x[0])
+            result = sorted_data[:limit_to_use]
+
+            logger.info(
+                f"Returning {len(result)} candles in chronological order (oldest first)"
+            )
+            return result
 
         else:
             error_msg = f"Unexpected response format from LBank API: {response_data}"
