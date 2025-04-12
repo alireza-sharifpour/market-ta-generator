@@ -1,0 +1,20 @@
+import os
+
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# LBank API Configuration
+LBANK_API_KEY = os.getenv("LBANK_API_KEY", "")
+LBANK_API_SECRET = os.getenv("LBANK_API_SECRET", "")
+LBANK_API_BASE_URL = "https://api.lbkex.com"
+LBANK_KLINE_ENDPOINT = "/v2/kline.do"
+
+# Default parameters for OHLCV data fetching
+DEFAULT_TIMEFRAME = "day1"
+DEFAULT_SIZE = 200
+
+# OpenAI Configuration
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = "gpt-3.5-turbo"
