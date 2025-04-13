@@ -50,6 +50,7 @@ def test_direct_api():
     # Calculate a past timestamp dynamically based on timeframe
     # Similar to how it's done in lbank_client.py
     current_time = int(time.time())
+    print(f"Current time: {current_time}")
     seconds_to_subtract = 0
 
     # No longer using a buffer multiplier - going back exactly 'size' periods
