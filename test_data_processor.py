@@ -29,7 +29,7 @@ def test_data_processor():
         # Fetch some sample data from LBank
         pair = "eth_usdt"
         timeframe = "day1"
-        limit = 10
+        limit = 50
 
         print(
             f"Fetching OHLCV data for {pair} with timeframe={timeframe}, limit={limit}"
