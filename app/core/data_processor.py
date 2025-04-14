@@ -60,13 +60,13 @@ def format_data_for_llm(df: DataFrame) -> str:
         df: Processed DataFrame with OHLCV data.
 
     Returns:
-        String representation of the recent data in a format suitable for LLM consumption.
+        String representation of all the data in a format suitable for LLM consumption.
     """
-    # Get the latest 20 rows (or fewer if the DataFrame has fewer rows)
-    recent_data = df.tail(20)
+    # Use all rows instead of just the last 20
+    recent_data = df
 
     # Create a nicely formatted string with the data
-    formatted_data = "Recent OHLCV Data:\n"
+    formatted_data = "OHLCV Data:\n"
     formatted_data += f"{'Date':<12} {'Open':<10} {'High':<10} {'Low':<10} {'Close':<10} {'Volume':<15}\n"
 
     for idx, row in recent_data.iterrows():
