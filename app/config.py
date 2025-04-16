@@ -11,6 +11,10 @@ LBANK_API_SECRET = os.getenv("LBANK_API_SECRET", "")
 LBANK_API_BASE_URL = "https://api.lbkex.com"
 LBANK_KLINE_ENDPOINT = "/v2/kline.do"
 
+# Avalai API Configuration
+AVALAI_API_KEY = os.getenv("AVALAI_API_KEY", "")
+AVALAI_API_BASE_URL = "https://api.avalai.ir/v1"
+
 # Default parameters for OHLCV data fetching
 DEFAULT_TIMEFRAME = "day1"
 DEFAULT_SIZE = 200
