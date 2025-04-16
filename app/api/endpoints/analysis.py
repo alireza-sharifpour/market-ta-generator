@@ -28,9 +28,15 @@ async def analyze_pair(request: AnalysisRequest):
     """
     try:
         logger.info(f"Received analysis request for pair: {request.pair}")
+        if request.timeframe:
+            logger.info(f"Using timeframe: {request.timeframe}")
+        if request.limit:
+            logger.info(f"Using limit: {request.limit}")
 
         # Call the analysis service to process the request
-        result = run_phase1_analysis(request.pair)
+        result = run_phase1_analysis(
+            request.pair, timeframe=request.timeframe, limit=request.limit
+        )
 
         # Check if the analysis was successful
         if result["status"] == "success":
