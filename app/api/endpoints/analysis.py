@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from app.api.models import AnalysisRequest, AnalysisResponse
+from app.core.analysis_service import run_phase1_analysis
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -28,14 +29,23 @@ async def analyze_pair(request: AnalysisRequest):
     try:
         logger.info(f"Received analysis request for pair: {request.pair}")
 
-        # Temporary dummy response for Phase 1
-        # This will be replaced with actual service calls in later tasks
-        return AnalysisResponse(
-            status="success",
-            analysis=f"This is a placeholder analysis for {request.pair}. "
-            f"Real analysis will be implemented in upcoming tasks.",
-            message=None,
-        )
+        # Call the analysis service to process the request
+        result = run_phase1_analysis(request.pair)
+
+        # Check if the analysis was successful
+        if result["status"] == "success":
+            return AnalysisResponse(
+                status=result["status"],
+                analysis=result["analysis"],
+                message=None,
+            )
+        else:
+            # Return error response with appropriate message
+            return AnalysisResponse(
+                status=result["status"],
+                analysis=None,
+                message=result["message"],
+            )
     except Exception as e:
         logger.error(f"Error during analysis: {str(e)}")
         raise HTTPException(
