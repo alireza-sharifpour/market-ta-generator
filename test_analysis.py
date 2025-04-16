@@ -4,9 +4,16 @@ Test script for the market-ta-generator analysis endpoint.
 """
 
 import json
+import logging
 import sys
 
 import requests
+
+from app.utils.logging_config import setup_logging
+
+# Set up logging with DEBUG level to see all log messages
+setup_logging("DEBUG")
+logger = logging.getLogger(__name__)
 
 # URL of the API endpoint
 API_URL = "http://localhost:8000/api/v1/analyze"
