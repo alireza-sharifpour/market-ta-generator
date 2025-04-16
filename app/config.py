@@ -17,8 +17,8 @@ AVALAI_API_BASE_URL = "https://api.avalai.ir/v1"
 
 # Default parameters for OHLCV data fetching
 DEFAULT_TIMEFRAME = "day1"
-DEFAULT_SIZE = 200
+DEFAULT_SIZE = 60
 
 # OpenAI Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gpt-4o"
+OPENAI_MODEL = "gpt-4o-mini"
