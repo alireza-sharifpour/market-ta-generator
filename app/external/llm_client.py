@@ -90,7 +90,10 @@ class OpenAIClient(BaseLLMClient):
 
         while retries <= max_retries:
             try:
-                logger.debug(f"Sending prompt to OpenAI: {prompt[:100]}...")
+                # Log the full prompt at INFO level with a distinctive format
+                logger.info("======== FULL PROMPT SENT TO LLM ========")
+                logger.info(prompt)
+                logger.info("==========================================")
 
                 # Make the API call to OpenAI
                 response = self.client.chat.completions.create(
@@ -189,13 +192,16 @@ def get_llm_client(
         raise ValueError(f"Unsupported LLM provider: {provider}")
 
 
-def generate_basic_analysis(pair: str, data_summary: str) -> str:
+def generate_basic_analysis(
+    pair: str, data_summary: str, timeframe: Optional[str] = None
+) -> str:
     """
     Generate a basic analysis of the cryptocurrency pair data.
 
     Args:
         pair: The trading pair (e.g., 'BTCUSDT')
         data_summary: Processed data summary from the data_processor
+        timeframe: The timeframe of the data (e.g., 'day1', 'hour4')
 
     Returns:
         The generated analysis text
@@ -204,9 +210,43 @@ def generate_basic_analysis(pair: str, data_summary: str) -> str:
         Exception: If there's an error in the analysis generation
     """
     try:
+        # Get human-readable timeframe description
+        timeframe_description = ""
+        if timeframe:
+            if timeframe == "minute1":
+                timeframe_description = "1-minute"
+            elif timeframe == "minute5":
+                timeframe_description = "5-minute"
+            elif timeframe == "minute15":
+                timeframe_description = "15-minute"
+            elif timeframe == "minute30":
+                timeframe_description = "30-minute"
+            elif timeframe == "hour1":
+                timeframe_description = "1-hour"
+            elif timeframe == "hour4":
+                timeframe_description = "4-hour"
+            elif timeframe == "hour8":
+                timeframe_description = "8-hour"
+            elif timeframe == "hour12":
+                timeframe_description = "12-hour"
+            elif timeframe == "day1":
+                timeframe_description = "daily"
+            elif timeframe == "week1":
+                timeframe_description = "weekly"
+            elif timeframe == "month1":
+                timeframe_description = "monthly"
+            else:
+                timeframe_description = timeframe
+
         # Construct the prompt for the LLM
+        timeframe_info = (
+            f" using {timeframe_description} timeframe data"
+            if timeframe_description
+            else ""
+        )
+
         prompt = f"""
-        Analyze the following daily OHLCV (Open, High, Low, Close, Volume) data for the {pair} trading pair and provide a brief summary:
+        Analyze the following OHLCV (Open, High, Low, Close, Volume) data for the {pair} trading pair{timeframe_info} and provide a comprehensive analysis:
 
         {data_summary}
 
