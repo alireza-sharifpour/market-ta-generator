@@ -91,7 +91,9 @@ def run_phase1_analysis(
         # Step 4: Generate analysis using LLM
         logger.info("Generating analysis using LLM")
         try:
-            analysis_text = generate_basic_analysis(pair, formatted_data)
+            analysis_text = generate_basic_analysis(
+                pair, formatted_data, timeframe=timeframe_to_use
+            )
             logger.info("Successfully generated analysis")
         except Exception as e:
             error_msg = f"Failed to generate analysis with LLM: {str(e)}"
