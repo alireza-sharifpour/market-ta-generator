@@ -53,7 +53,7 @@ class OpenAIClient(BaseLLMClient):
 
         Args:
             api_key: OpenAI API key
-            model: OpenAI model to use (e.g., 'gpt-3.5-turbo', 'gpt-4o')
+            model: OpenAI model to use (e.g., 'gpt-3.5-turbo', 'gpt-4o', 'gpt-4o-mini')
         """
         self.api_key = api_key
         self.model = model
