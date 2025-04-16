@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from app.api.endpoints.analysis import router as analysis_router
 from app.utils.logging_config import setup_logging
 
-# Initialize logging
-setup_logging()
+# Initialize logging with DEBUG level for development
+setup_logging("DEBUG")
 logger = logging.getLogger(__name__)
 
 
