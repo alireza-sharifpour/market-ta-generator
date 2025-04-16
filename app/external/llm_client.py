@@ -18,7 +18,7 @@ from openai import (
     RateLimitError,
 )
 
-from app.config import OPENAI_API_KEY, OPENAI_MODEL
+from app.config import AVALAI_API_BASE_URL, AVALAI_API_KEY, OPENAI_MODEL
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ class BaseLLMClient(abc.ABC):
 class OpenAIClient(BaseLLMClient):
     """OpenAI implementation of the LLM client."""
 
-    def __init__(self, api_key: str = OPENAI_API_KEY, model: str = OPENAI_MODEL):
+    def __init__(self, api_key: str = AVALAI_API_KEY, model: str = OPENAI_MODEL):
         """
         Initialize the OpenAI client.
 
@@ -63,7 +63,7 @@ class OpenAIClient(BaseLLMClient):
             raise ValueError("OpenAI API key is required.")
 
         try:
-            self.client = OpenAI(api_key=api_key)
+            self.client = OpenAI(api_key=api_key, base_url=AVALAI_API_BASE_URL)
             logger.info(f"Initialized OpenAI client with model: {model}")
         except Exception as e:
             logger.error(f"Failed to initialize OpenAI client: {str(e)}")
