@@ -12,17 +12,29 @@ import requests
 API_URL = "http://localhost:8000/api/v1/analyze"
 
 
-def test_analysis(pair):
+def test_analysis(pair, timeframe=None, limit=None):
     """
     Test the analysis endpoint with the given trading pair.
 
     Args:
         pair: Trading pair to analyze (e.g., "eth_usdt")
+        timeframe: Time interval for each candle (e.g., "day1", "hour4")
+        limit: Number of candles to fetch (1-2000)
     """
     # Create the request payload
     payload = {"pair": pair}
 
+    # Add optional parameters if provided
+    if timeframe:
+        payload["timeframe"] = timeframe
+    if limit:
+        payload["limit"] = limit
+
     print(f"\nTesting analysis for pair: {pair}")
+    if timeframe:
+        print(f"Timeframe: {timeframe}")
+    if limit:
+        print(f"Limit: {limit}")
     print("Sending request to:", API_URL)
     print("Request payload:", json.dumps(payload, indent=2))
 
@@ -59,6 +71,17 @@ def test_analysis(pair):
 
 
 if __name__ == "__main__":
-    # Use command line argument or default to "eth_usdt"
-    pair = sys.argv[1] if len(sys.argv) > 1 else "eth_usdt"
-    test_analysis(pair)
+    # Parse command line arguments
+    args = sys.argv[1:]
+
+    # Default pair is "eth_usdt"
+    pair = args[0] if len(args) > 0 else "eth_usdt"
+
+    # Optional timeframe and limit from command line
+    timeframe = args[1] if len(args) > 1 else None
+
+    # Convert limit to integer if provided
+    limit = int(args[2]) if len(args) > 2 else None
+
+    # Run the test
+    test_analysis(pair, timeframe, limit)
