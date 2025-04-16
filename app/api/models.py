@@ -9,6 +9,13 @@ class AnalysisRequest(BaseModel):
     """
 
     pair: str = Field(..., description="The trading pair symbol (e.g., 'ETHUSDT')")
+    timeframe: Optional[str] = Field(
+        None,
+        description="The timeframe for OHLCV data (e.g., 'minute1', 'hour4', 'day1')",
+    )
+    limit: Optional[int] = Field(
+        None, description="Number of candles to fetch (1-2000)", ge=1, le=2000
+    )
 
 
 class AnalysisResponse(BaseModel):
