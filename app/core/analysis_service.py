@@ -4,8 +4,9 @@ processing, and LLM analysis.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
+from app.config import DEFAULT_SIZE, DEFAULT_TIMEFRAME
 from app.core.data_processor import format_data_for_llm, process_raw_data
 from app.external.lbank_client import LBankAPIError, LBankConnectionError, fetch_ohlcv
 from app.external.llm_client import generate_basic_analysis
@@ -20,7 +21,9 @@ class AnalysisError(Exception):
     pass
 
 
-def run_phase1_analysis(pair: str) -> Dict[str, Any]:
+def run_phase1_analysis(
+    pair: str, timeframe: Optional[str] = None, limit: Optional[int] = None
+) -> Dict[str, Any]:
     """
     Orchestrates the Phase 1 analysis workflow:
     1. Fetch raw OHLCV data from LBank API
@@ -30,6 +33,10 @@ def run_phase1_analysis(pair: str) -> Dict[str, Any]:
 
     Args:
         pair: Trading pair symbol (e.g., "eth_usdt")
+        timeframe: Time interval for each candle (e.g., "day1", "hour4")
+                   Defaults to "day1" if None
+        limit: Number of candles to fetch (1-2000)
+               Defaults to DEFAULT_SIZE if None
 
     Returns:
         Dictionary with analysis results containing:
@@ -41,12 +48,18 @@ def run_phase1_analysis(pair: str) -> Dict[str, Any]:
         AnalysisError: If any part of the analysis process fails
     """
     try:
-        logger.info(f"Starting Phase 1 analysis for pair: {pair}")
+        # Use provided values or defaults
+        timeframe_to_use = DEFAULT_TIMEFRAME if timeframe is None else timeframe
+        limit_to_use = DEFAULT_SIZE if limit is None else limit
+
+        logger.info(
+            f"Starting Phase 1 analysis for pair: {pair}, timeframe: {timeframe_to_use}, limit: {limit_to_use}"
+        )
 
         # Step 1: Fetch raw OHLCV data from LBank API
         logger.info(f"Fetching OHLCV data for {pair}")
         try:
-            raw_data = fetch_ohlcv(pair)
+            raw_data = fetch_ohlcv(pair, timeframe=timeframe_to_use, limit=limit_to_use)
             logger.info(f"Successfully fetched {len(raw_data)} data points for {pair}")
         except (LBankAPIError, LBankConnectionError) as e:
             error_msg = f"Failed to fetch data from LBank: {str(e)}"
@@ -68,7 +81,7 @@ def run_phase1_analysis(pair: str) -> Dict[str, Any]:
         # Step 3: Format the data for LLM consumption
         logger.info("Formatting data for LLM")
         try:
-            formatted_data = format_data_for_llm(df)
+            formatted_data = format_data_for_llm(df, timeframe=timeframe_to_use)
             logger.info("Successfully formatted data for LLM")
         except Exception as e:
             error_msg = f"Failed to format data for LLM: {str(e)}"
