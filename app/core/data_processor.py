@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import List, Union, cast
+from typing import List, Optional, Union, cast
 
 import pandas as pd
 from pandas import DataFrame
@@ -52,12 +52,13 @@ def process_raw_data(raw_data: List[List[Union[int, float]]]) -> DataFrame:
         raise ValueError(f"Failed to process data: {str(e)}")
 
 
-def format_data_for_llm(df: DataFrame) -> str:
+def format_data_for_llm(df: DataFrame, timeframe: Optional[str] = None) -> str:
     """
     Format the processed DataFrame into a string suitable for an LLM prompt.
 
     Args:
         df: Processed DataFrame with OHLCV data.
+        timeframe: Time interval for each candle (e.g., "day1", "hour4")
 
     Returns:
         String representation of all the data in a format suitable for LLM consumption.
@@ -65,8 +66,40 @@ def format_data_for_llm(df: DataFrame) -> str:
     # Use all rows instead of just the last 20
     recent_data = df
 
+    # Add timeframe information if provided
+    timeframe_description = ""
+    if timeframe:
+        if timeframe == "minute1":
+            timeframe_description = "1-minute"
+        elif timeframe == "minute5":
+            timeframe_description = "5-minute"
+        elif timeframe == "minute15":
+            timeframe_description = "15-minute"
+        elif timeframe == "minute30":
+            timeframe_description = "30-minute"
+        elif timeframe == "hour1":
+            timeframe_description = "1-hour"
+        elif timeframe == "hour4":
+            timeframe_description = "4-hour"
+        elif timeframe == "hour8":
+            timeframe_description = "8-hour"
+        elif timeframe == "hour12":
+            timeframe_description = "12-hour"
+        elif timeframe == "day1":
+            timeframe_description = "daily"
+        elif timeframe == "week1":
+            timeframe_description = "weekly"
+        elif timeframe == "month1":
+            timeframe_description = "monthly"
+        else:
+            timeframe_description = timeframe
+
     # Create a nicely formatted string with the data
-    formatted_data = "OHLCV Data:\n"
+    formatted_data = f"OHLCV Data"
+    if timeframe_description:
+        formatted_data += f" ({timeframe_description} timeframe)"
+    formatted_data += ":\n"
+
     formatted_data += f"{'Date':<12} {'Open':<10} {'High':<10} {'Low':<10} {'Close':<10} {'Volume':<15}\n"
 
     for idx, row in recent_data.iterrows():
@@ -99,6 +132,10 @@ def format_data_for_llm(df: DataFrame) -> str:
 
     formatted_data += f"Data Range: {min_date_str} to {max_date_str}\n"
     formatted_data += f"Total Periods: {len(df)}\n"
+
+    if timeframe_description:
+        formatted_data += f"Timeframe: {timeframe_description}\n"
+
     formatted_data += f"Latest Close: {df['Close'].iloc[-1]:.4f}\n"
     formatted_data += f"Period High: {df['High'].max():.4f}\n"
     formatted_data += f"Period Low: {df['Low'].min():.4f}\n"
