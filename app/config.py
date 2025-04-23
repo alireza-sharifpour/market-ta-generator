@@ -21,4 +21,4 @@ DEFAULT_SIZE = 60
 
 # OpenAI Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gpt-4o"
+OPENAI_MODEL = "gemini-2.0-flash"
