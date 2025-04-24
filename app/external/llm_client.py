@@ -58,6 +58,8 @@ class OpenAIClient(BaseLLMClient):
         self.api_key = api_key
         self.model = model
 
+        print(f"Initializing OpenAI client with model: {model}")
+
         if not api_key:
             logger.error("OpenAI API key not provided.")
             raise ValueError("OpenAI API key is required.")
@@ -238,22 +240,56 @@ def generate_basic_analysis(
             else:
                 timeframe_description = timeframe
 
-        # Construct the prompt for the LLM
-        timeframe_info = (
-            f" using {timeframe_description} timeframe data"
-            if timeframe_description
-            else ""
-        )
-
         prompt = f"""
-        Analyze the following OHLCV (Open, High, Low, Close, Volume) data for the {pair} trading pair{timeframe_info} and provide a comprehensive analysis:
+        You are a professional cryptocurrency analyst generating a report for a Telegram bot.
+        **Important Note:** This is Phase 1 analysis based **strictly on the provided OHLCV data only**. It describes recent price action but **cannot provide indicator-based signals, specific scenarios, or predictions**.
 
-        {data_summary}
+        **Input Data:**
+        Trading Pair: **{pair}**
+        Timeframe: **{timeframe_description}** # English timeframe description (e.g., 4-hour, daily)
+        Recent OHLCV Data Summary (Candlesticks):
 
-        Please provide:
-        1. A general market summary based on the data
-        2. Key price levels and trends
-        3. An overall sentiment (bullish, bearish, or neutral)
+        {data_summary} # Tabular data starts with a header row, then rows with columns: Date, Open, High, Low, Close, Volume. Dates are in YYYY-MM-DD format. PAY CLOSE ATTENTION TO THE 'Date' COLUMN.
+
+        **Output Requirements:**
+        1.  **Language:** MUST be entirely in **Persian (Farsi)**.
+        2.  **Formatting:** Use **Telegram Markdown** (`**bold**`, `- ` bullets).
+        3.  **Structure:**
+            * **Title:** Start immediately with the Persian title, strictly following this structure: `**تحلیل {pair} - تایم فریم [PERSIAN_TIMEFRAME_PHRASE]**`.
+                * Convert the Input Timeframe (`{timeframe_description}`) into the `[PERSIAN_TIMEFRAME_PHRASE]` using natural Persian TA phrasing. **Examples:**
+                    * Input `daily` -> Use `روزانه` -> Full Title: `**تحلیل {pair} - تایم فریم روزانه**`
+                    * Input `4-hour` -> Use `۴ ساعته` -> Full Title: `**تحلیل {pair} - تایم فریم ۴ ساعته**`
+                    * Input `1-hour` -> Use `۱ ساعته` -> Full Title: `**تحلیل {pair} - تایم فریم ۱ ساعته**`
+                    *(Adapt pattern for others)*
+            * **Data Period Identification (Instruction for LLM):**
+                * **Carefully examine** the `Date` column in the `data_summary` provided above. Ignore the header row.
+                * Locate the date in the **first data row**; this is the **[START_DATE]**.
+                * Locate the date in the **very last data row**; this is the **[END_DATE]**.
+                * **CRITICAL:** Extract the dates exactly as they appear (YYYY-MM-DD format). **Verify the year.** For example, if the first date is `2025-04-07`, use `2025-04-07`. **Do not output incorrect years like 20025.**
+            * **Body:** Follow the title (with a blank line) using these exact Persian headings:
+
+                `**۱. خلاصه وضعیت:**`
+                - Provide a brief overview for **{pair}** in the specified Persian timeframe. State that the analysis covers the period from **[START_DATE]** to **[END_DATE]** (using the exact dates identified from the first and last data rows).
+                - Calculate and mention the approximate **overall percentage change** from the *start to the end* of the provided data.
+                - Describe the price action in the **last 1-3 candles** within the data set.
+                - Briefly comment on recent **volume** compared to the average volume in the provided data set.
+
+                `**۲. روند و سطوح مشاهده شده:**`
+                - State the primary **trend** observed *during the analyzed period* (from **[START_DATE]** to **[END_DATE]**).
+                - Specify the **highest price** (`بالاترین قیمت در این دوره`) and **lowest price** (`پایین‌ترین قیمت در این دوره`) reached *within this specific period* (from **[START_DATE]** to **[END_DATE]**).
+                - Report the **most recent closing price** (`آخرین قیمت بسته‌شدن`) and mention where it sits relative to the high and low *of this period*.
+
+                `**۳. احساسات کلی (بر اساس قیمت/حجم):**`
+                - Conclude the overall market sentiment derived *strictly* from the observed price/volume *in the analyzed period* (from **[START_DATE]** to **[END_DATE]**).
+                # Disclaimer instruction has been removed.
+
+        **Important Constraints:**
+        * Analysis MUST be based *only* on the provided OHLCV `data_summary`.
+        * **Accurately extract and use the start/end dates (YYYY-MM-DD format)** from the first and last *data rows* (ignore header) of the `Date` column. Double-check the year is correct (e.g., 2025).
+        * Acknowledge this is basic analysis; **do not** invent signals, scenarios, predictions.
+        * Strictly follow the requested Persian title and heading structure. Use the timeframe conversion examples.
+        * No trading advice.
+        * Output ONLY the Persian title and structured analysis.
         """
 
         # Get the LLM client (defaults to OpenAI)
