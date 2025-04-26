@@ -1,0 +1,53 @@
+name: Deploy to Server
+
+# Trigger the workflow on push events to the main branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy Application
+    runs-on: ubuntu-latest # Use GitHub's provided runners
+
+    steps:
+      - name: Checkout code (Optional but good practice)
+        uses: actions/checkout@v4 # Checks out your repository code onto the runner
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@master # Popular action for SSH commands
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Navigate to the project directory on the server
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            # Pull the latest changes from the main branch
+            echo ">>> Pulling latest code..."
+            git checkout main # Ensure we are on the main branch
+            git pull origin main
+
+            # Ensure the .env file exists (manual step, should already be there)
+            if [ ! -f .env ]; then
+              echo "ERROR: .env file not found on server at ${{ secrets.DEPLOY_PATH }}"
+              exit 1
+            fi
+
+            # Stop existing containers (optional, for cleaner start)
+            echo ">>> Stopping existing services..."
+            docker compose down
+
+            # Build and start services using Docker Compose
+            # --build will rebuild the image only if Dockerfile or related files changed
+            # -d runs containers in the background
+            echo ">>> Building and starting services..."
+            docker compose up --build -d
+
+            # Optional: Clean up old unused Docker images to save space
+            echo ">>> Pruning old Docker images..."
+            docker image prune -f
+
+            echo ">>> Deployment successful!"
