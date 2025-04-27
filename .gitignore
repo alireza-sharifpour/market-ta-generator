@@ -17,3 +17,5 @@ docker-compose.override.yml
 
 .cursor/
 docs/
+.DS_Store
+**/.DS_Store
