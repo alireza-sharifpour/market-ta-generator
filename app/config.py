@@ -22,3 +22,11 @@ DEFAULT_SIZE = 60
 # OpenAI Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = "gemini-2.0-flash"
+
+# IP Whitelist Configuration
+# Default values provided, but can be overridden with environment variables
+WHITELIST_ENABLED = os.getenv("WHITELIST_ENABLED", "True").lower() == "true"
+# Define whitelisted IPs as a comma-separated string in the environment
+WHITELISTED_IPS = os.getenv(
+    "WHITELISTED_IPS", "127.0.0.1,154.90.55.18,10.72.24.67,4.210.246.79"
+).split(",")
