@@ -1,9 +1,12 @@
 import logging
 from datetime import datetime
-from typing import List, Optional, Union, cast
+from typing import Dict, List, Optional, Union, cast
 
 import pandas as pd
+import pandas_ta as ta
 from pandas import DataFrame
+
+from app.config import INDICATOR_SETTINGS  # Import settings
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -141,3 +144,86 @@ def format_data_for_llm(df: DataFrame, timeframe: Optional[str] = None) -> str:
     formatted_data += f"Period Low: {df['Low'].min():.4f}\n"
 
     return formatted_data
+
+
+def add_technical_indicators(
+    df: DataFrame, settings: Optional[Dict[str, Union[int, float]]] = None
+) -> DataFrame:
+    """
+    Calculate technical indicators for the OHLCV DataFrame using pandas_ta.
+
+    Uses default periods from app.config.INDICATOR_SETTINGS if not provided.
+    Required indicators: EMAs, RSI, Bollinger Bands, ADX, MFI.
+
+    Args:
+        df: DataFrame with columns [Open, High, Low, Close, Volume]
+            and a datetime index.
+        settings: Optional dictionary to override default indicator parameters.
+                  Keys should match INDICATOR_SETTINGS keys.
+
+    Returns:
+        DataFrame with added technical indicator columns.
+
+    Raises:
+        ValueError: If the input DataFrame is empty or lacks required columns.
+        RuntimeError: If an error occurs during indicator calculation.
+    """
+    if df.empty:
+        logger.warning("Input DataFrame is empty. Cannot calculate indicators.")
+        raise ValueError("Input DataFrame is empty")
+
+    required_cols = {"Open", "High", "Low", "Close", "Volume"}
+    if not required_cols.issubset(df.columns):
+        missing = required_cols - set(df.columns)
+        logger.error(f"DataFrame missing required columns: {missing}")
+        raise ValueError(f"DataFrame missing required columns: {missing}")
+
+    # Use default settings, override with provided settings
+    current_settings = INDICATOR_SETTINGS.copy()
+    if settings:
+        current_settings.update(settings)
+        logger.info(f"Using custom indicator settings: {settings}")
+    else:
+        logger.info(f"Using default indicator settings: {INDICATOR_SETTINGS}")
+
+    # Create a copy to avoid modifying the original DataFrame
+    df_with_indicators = df.copy()
+
+    try:
+        # Ensure required periods are available for calculation
+        min_data_points = max(
+            current_settings["ema_long"],
+            current_settings["rsi_period"],
+            current_settings["bb_period"],
+            current_settings["adx_period"],
+            current_settings["mfi_period"],
+        )
+        if len(df_with_indicators) < min_data_points:
+            logger.warning(
+                f"Insufficient data points ({len(df_with_indicators)}) for the longest period ({min_data_points}). Indicators may be NaN."
+            )
+            # Do not raise error here, let pandas-ta handle NaN generation
+
+        # Add indicators using the DataFrame extension provided by pandas_ta
+        df_with_indicators.ta.ema(length=current_settings["ema_short"], append=True)
+        df_with_indicators.ta.ema(length=current_settings["ema_medium"], append=True)
+        df_with_indicators.ta.ema(length=current_settings["ema_long"], append=True)
+        df_with_indicators.ta.rsi(length=current_settings["rsi_period"], append=True)
+        df_with_indicators.ta.bbands(
+            length=current_settings["bb_period"],
+            std=current_settings["bb_std_dev"],
+            append=True,
+        )
+        df_with_indicators.ta.adx(length=current_settings["adx_period"], append=True)
+        df_with_indicators.ta.mfi(length=current_settings["mfi_period"], append=True)
+
+        # Log the columns added
+        added_cols = set(df_with_indicators.columns) - set(df.columns)
+        logger.info(f"Added technical indicators: {sorted(list(added_cols))}")
+
+        return df_with_indicators
+
+    except Exception as e:
+        logger.error(f"Error calculating technical indicators: {e}", exc_info=True)
+        # Raise a more specific error if possible, otherwise generic RuntimeError
+        raise RuntimeError(f"Failed to calculate technical indicators: {e}")
