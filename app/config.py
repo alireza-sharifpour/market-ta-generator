@@ -19,6 +19,19 @@ AVALAI_API_BASE_URL = "https://api.avalai.ir/v1"
 DEFAULT_TIMEFRAME = "day1"
 DEFAULT_SIZE = 60
 
+# Technical Indicators Configuration
+# Default periods/settings for technical indicators
+INDICATOR_SETTINGS = {
+    "ema_short": 9,
+    "ema_medium": 21,
+    "ema_long": 50,
+    "rsi_period": 14,
+    "bb_period": 20,
+    "bb_std_dev": 2.0,
+    "adx_period": 14,
+    "mfi_period": 14,
+}
+
 # OpenAI Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = "gemini-2.0-flash"
