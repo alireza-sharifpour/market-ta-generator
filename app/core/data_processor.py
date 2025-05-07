@@ -736,7 +736,12 @@ def prepare_llm_input_phase2(
                 distance = ((level - current_price) / current_price) * 100
                 output += f"- {level:.4f} ({distance:.2f}% above current price)\n"
         else:
-            output += "- No resistance levels detected above current price\n"
+            # This case handles when sr_levels["resistance"] was not empty,
+            # but all identified levels were below the current price.
+            output += "- No resistance levels above current price (all identified levels are below current price).\n"
+    else:  # If "resistance" key not in sr_levels or sr_levels["resistance"] is an empty list
+        output += "### Resistance Levels (Ascending)\n"  # Still add the heading
+        output += "- No significant resistance levels detected with current settings.\n"
 
     # Process support levels (sort in descending order)
     if "support" in sr_levels and sr_levels["support"]:
@@ -751,6 +756,11 @@ def prepare_llm_input_phase2(
                 distance = ((current_price - level) / current_price) * 100
                 output += f"- {level:.4f} ({distance:.2f}% below current price)\n"
         else:
-            output += "- No support levels detected below current price\n"
+            # This case handles when sr_levels["support"] was not empty,
+            # but all identified levels were above the current price.
+            output += "- No support levels below current price (all identified levels are above current price).\n"
+    else:  # If "support" key not in sr_levels or sr_levels["support"] is an empty list
+        output += "\n### Support Levels (Descending)\n"  # Still add the heading
+        output += "- No significant support levels detected with current settings.\n"
 
     return output
