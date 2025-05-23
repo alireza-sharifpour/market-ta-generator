@@ -303,3 +303,129 @@ def generate_basic_analysis(
     except Exception as e:
         logger.error(f"Error generating analysis for {pair}: {str(e)}")
         raise
+
+
+def generate_detailed_analysis(
+    pair: str, structured_data: str, timeframe: Optional[str] = None
+) -> str:
+    """
+    Generate a detailed (Phase 2) analysis of the cryptocurrency pair,
+    incorporating technical indicators and S/R levels.
+
+    Args:
+        pair: The trading pair (e.g., 'BTCUSDT')
+        structured_data: A string containing formatted OHLCV data,
+                         technical indicators, and S/R levels.
+        timeframe: The timeframe of the data (e.g., 'day1', 'hour4')
+
+    Returns:
+        The generated detailed analysis text in Persian.
+
+    Raises:
+        Exception: If there's an error in the analysis generation.
+    """
+    try:
+        # Get human-readable timeframe description
+        timeframe_description = ""
+        persian_timeframe_phrase = ""
+        if timeframe:
+            if timeframe == "minute1":
+                timeframe_description = "1-minute"
+                persian_timeframe_phrase = "۱ دقیقه‌ای"
+            elif timeframe == "minute5":
+                timeframe_description = "5-minute"
+                persian_timeframe_phrase = "۵ دقیقه‌ای"
+            elif timeframe == "minute15":
+                timeframe_description = "15-minute"
+                persian_timeframe_phrase = "۱۵ دقیقه‌ای"
+            elif timeframe == "minute30":
+                timeframe_description = "30-minute"
+                persian_timeframe_phrase = "۳۰ دقیقه‌ای"
+            elif timeframe == "hour1":
+                timeframe_description = "1-hour"
+                persian_timeframe_phrase = "۱ ساعته"
+            elif timeframe == "hour4":
+                timeframe_description = "4-hour"
+                persian_timeframe_phrase = "۴ ساعته"
+            elif timeframe == "hour8":
+                timeframe_description = "8-hour"
+                persian_timeframe_phrase = "۸ ساعته"
+            elif timeframe == "hour12":
+                timeframe_description = "12-hour"
+                persian_timeframe_phrase = "۱۲ ساعته"
+            elif timeframe == "day1":
+                timeframe_description = "daily"
+                persian_timeframe_phrase = "روزانه"
+            elif timeframe == "week1":
+                timeframe_description = "weekly"
+                persian_timeframe_phrase = "هفتگی"
+            elif timeframe == "month1":
+                timeframe_description = "monthly"
+                persian_timeframe_phrase = "ماهانه"
+            else:
+                timeframe_description = timeframe
+                persian_timeframe_phrase = timeframe  # Fallback
+
+        prompt = f"""
+        You are a professional cryptocurrency technical analyst. Your task is to generate a detailed market analysis report for the trading pair **{pair}** based on the provided structured data. This report will be used in a Telegram bot.
+
+        **Input Data (Structured):**
+        Trading Pair: **{pair}**
+        Timeframe: **{timeframe_description}** (Persian equivalent: {persian_timeframe_phrase})
+
+        ```
+        {structured_data}
+        ```
+        (The structured data above includes: Latest OHLCV, Market Statistics, Technical Indicators [EMAs, RSI, MFI, ADX with DI+/DI-, Bollinger Bands with interpretations], and identified Support/Resistance Levels.)
+
+        **Output Requirements:**
+        1.  **Language:** MUST be entirely in **Persian (Farsi)**.
+        2.  **Formatting:** Use **Telegram Markdown** (`**bold**`, `- ` bullets, etc.).
+        3.  **Structure:** Adhere strictly to the following Persian title and headings:
+
+            `**تحلیل {pair} - تایم فریم {persian_timeframe_phrase}**`
+            (A blank line should follow this title)
+
+            `**۱. خلاصه عمومی و وضعیت فعلی:**`
+            - Provide a concise overview of the current market situation for **{pair}**.
+            - Briefly mention the very latest price action and its relation to the immediate short-term trend (e.g., last few candles).
+            - Comment on the latest volume in the context of recent activity.
+
+            `**۲. تحلیل تکنیکال جامع:**`
+            - **Moving Averages (EMAs):** Discuss the configuration of the EMAs (e.g., short-term EMA vs. long-term EMA) and what they indicate about the trend. Note any crossovers or significant distances from price.
+            - **Momentum Indicators (RSI, MFI):** Analyze the latest RSI and MFI values. Are they in overbought/oversold territories? What is their recent trend (rising/falling)? What does this suggest about market momentum and potential reversals or continuations?
+            - **Trend Strength (ADX, DI+/DI-):** Interpret the ADX value. Is the market trending strongly, weakly, or ranging? What do the DI+ and DI- lines indicate about the direction and dominance of bulls vs. bears?
+            - **Volatility Bands (Bollinger Bands):** Describe the current price in relation to the Bollinger Bands (e.g., near upper/lower band, testing middle band). Is the price outside the bands? What does the band width suggest about volatility?
+
+            `**۳. سطوح حمایت و مقاومت کلیدی:**`
+            - List the identified key support levels, explaining their significance (e.g., "حمایت مهم در حدود قیمت X.X").
+            - List the identified key resistance levels, explaining their significance (e.g., "مقاومت اصلی در سطح Y.Y مشاهده می‌شود").
+            - Discuss how the current price relates to these levels.
+
+            `**۴. سناریوهای احتمالی و پیشنهاد معاملاتی:**`
+            - Based on the integrated analysis of indicators and S/R levels, outline potential bullish and bearish scenarios for the near future.
+            - Provide a general trading recommendation (e.g., "انتظار برای پولبک به سطح حمایت X.X جهت ورود به معامله خرید", "زیر نظر داشتن شکست مقاومت Y.Y برای تایید روند صعودی"). This should be a general outlook, not specific financial advice.
+            - If the timeframe is daily or longer, you may briefly discuss potential implications for shorter timeframes (e.g., 4-hour or 1-hour) if the patterns are clear.
+
+            `**۵. ارزیابی ریسک:**`
+            - Briefly mention key risk factors or conditions that could invalidate the analysis (e.g., "شکست قاطع حمایت X.X می‌تواند منجر به افت بیشتر قیمت شود", "انتشار اخبار مهم اقتصادی ممکن است تحلیل را دستخوش تغییر کند").
+
+        **Important Instructions for the Analyst (You):**
+        *   Your analysis **MUST** be based **solely and comprehensively** on the `structured_data` provided. Do not invent or assume data.
+        *   Refer to specific indicator values and S/R levels from the provided data in your analysis.
+        *   Maintain a professional, objective, and analytical tone.
+        *   The output should be ready to be displayed directly in a Telegram message.
+        *   Do not add any introductory or concluding remarks outside of the specified structure. Output ONLY the Persian title and structured analysis.
+        """
+
+        # Get the LLM client (defaults to OpenAI)
+        llm_client = get_llm_client()
+
+        # Generate the analysis using the LLM
+        analysis = llm_client.generate_text(prompt)
+
+        return analysis
+
+    except Exception as e:
+        logger.error(f"Error generating detailed analysis for {pair}: {str(e)}")
+        raise
