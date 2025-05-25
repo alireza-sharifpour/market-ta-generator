@@ -7,6 +7,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from app.config import DEFAULT_SIZE, DEFAULT_TIMEFRAME
+from app.core.chart_generator import generate_ohlcv_chart
 from app.core.data_processor import (
     add_technical_indicators,
     format_data_for_llm,
@@ -109,8 +110,25 @@ def run_phase1_analysis(
             logger.error(error_msg)
             return {"status": "error", "message": error_msg}
 
+        # Step 5: Generate chart (Phase 3)
+        logger.info("Generating OHLCV chart")
+        chart_image_base64 = None
+        try:
+            chart_image_base64 = generate_ohlcv_chart(df)
+            logger.info("Successfully generated chart")
+        except Exception as e:
+            # Chart generation is not critical - log the error but continue
+            error_msg = f"Failed to generate chart: {str(e)}"
+            logger.warning(error_msg)
+            chart_image_base64 = None
+
         # Return successful result
-        return {"status": "success", "analysis": analysis_text, "message": None}
+        return {
+            "status": "success",
+            "analysis": analysis_text,
+            "message": None,
+            "chart_image_base64": chart_image_base64,
+        }
 
     except Exception as e:
         error_msg = f"Unexpected error during analysis: {str(e)}"
@@ -242,7 +260,38 @@ def run_phase2_analysis(
             )  # exc_info for more details on LLM errors
             return {"status": "error", "message": error_msg}
 
-        return {"status": "success", "analysis": analysis_text, "message": None}
+        # Generate chart with indicators (Phase 3)
+        logger.info("Generating OHLCV chart with indicators")
+        chart_image_base64 = None
+        try:
+            # Determine which indicators to plot based on what's available
+            available_indicators = []
+            for col in df_with_indicators.columns:
+                if any(indicator in col for indicator in ["EMA", "SMA", "BB"]):
+                    available_indicators.append(col)
+
+            # Limit to a reasonable number of indicators for readability
+            indicators_to_plot = available_indicators[:5]  # Show up to 5 indicators
+
+            chart_image_base64 = generate_ohlcv_chart(
+                df_with_indicators,
+                indicators_to_plot=indicators_to_plot if indicators_to_plot else None,
+            )
+            logger.info(
+                f"Successfully generated chart with indicators: {indicators_to_plot}"
+            )
+        except Exception as e:
+            # Chart generation is not critical - log the error but continue
+            error_msg = f"Failed to generate chart with indicators: {str(e)}"
+            logger.warning(error_msg)
+            chart_image_base64 = None
+
+        return {
+            "status": "success",
+            "analysis": analysis_text,
+            "message": None,
+            "chart_image_base64": chart_image_base64,
+        }
 
     except Exception as e:
         # This is a catch-all for unexpected errors not caught in specific steps
