@@ -7,12 +7,27 @@ import matplotlib
 import matplotlib.pyplot as plt
 import mplfinance as mpf  # type: ignore
 import pandas as pd
+from matplotlib.lines import Line2D
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 # Set the matplotlib backend to Agg for headless environments
 matplotlib.use("Agg")
+
+# Define colors for different indicators
+INDICATOR_COLORS = [
+    "#FF6B6B",  # Red
+    "#4ECDC4",  # Teal
+    "#45B7D1",  # Blue
+    "#96CEB4",  # Green
+    "#FECA57",  # Yellow
+    "#FF9FF3",  # Pink
+    "#54A0FF",  # Light Blue
+    "#5F27CD",  # Purple
+    "#00D2D3",  # Cyan
+    "#FF9F43",  # Orange
+]
 
 
 def generate_ohlcv_chart(
@@ -28,7 +43,7 @@ def generate_ohlcv_chart(
     which is specifically designed for financial data visualization. The chart includes:
     - Candlestick price data (OHLC)
     - Volume bars below the price chart
-    - Optional technical indicators overlay
+    - Optional technical indicators overlay with legend
 
     Args:
         df: DataFrame with OHLCV data and datetime index
@@ -68,21 +83,34 @@ def generate_ohlcv_chart(
 
         # Prepare additional plots for indicators
         addplot_list = []
+        legend_labels = []
 
         if indicators_to_plot:
             logger.info(f"Adding indicators to chart: {indicators_to_plot}")
 
-            for indicator in indicators_to_plot:
+            for i, indicator in enumerate(indicators_to_plot):
                 if indicator in df.columns:
                     # Check if the indicator has valid data
                     if not df[indicator].isna().all():
-                        # Create addplot for each indicator
+                        # Get color for this indicator
+                        color = INDICATOR_COLORS[i % len(INDICATOR_COLORS)]
+
+                        # Create addplot for each indicator with specific color
                         addplot_list.append(
                             mpf.make_addplot(
-                                df[indicator], type="line", width=1.5, alpha=0.8
+                                df[indicator],
+                                type="line",
+                                width=2,
+                                alpha=0.8,
+                                color=color,
                             )
                         )
-                        logger.info(f"Added indicator {indicator} to chart")
+
+                        # Store label and color for legend
+                        legend_labels.append((indicator, color))
+                        logger.info(
+                            f"Added indicator {indicator} to chart with color {color}"
+                        )
                     else:
                         logger.warning(
                             f"Indicator {indicator} has no valid data, skipping"
@@ -109,6 +137,35 @@ def generate_ohlcv_chart(
         # Generate the chart using mplfinance
         logger.info("Generating chart with mplfinance...")
         fig, axes = mpf.plot(df, **chart_config)
+
+        # Add legend for indicators if any were plotted
+        if legend_labels:
+            # Get the main price axis (usually the first one)
+            price_ax = axes[0] if isinstance(axes, (list, tuple)) else axes
+
+            # Create legend entries
+            legend_handles = []
+            legend_names = []
+
+            for label, color in legend_labels:
+                # Create a line for the legend
+                handle = Line2D([0], [0], color=color, linewidth=2, alpha=0.8)
+                legend_handles.append(handle)
+                legend_names.append(label)
+
+            # Add the legend to the price chart
+            price_ax.legend(
+                legend_handles,
+                legend_names,
+                loc="upper left",
+                frameon=True,
+                fancybox=True,
+                shadow=True,
+                framealpha=0.9,
+                fontsize=10,
+            )
+
+            logger.info(f"Added legend with {len(legend_labels)} indicators")
 
         # Convert the figure to base64 encoded string
         logger.info("Converting chart to base64 format...")
@@ -154,7 +211,8 @@ def generate_ohlcv_chart_with_bollinger_bands(
     Generate an OHLCV chart with Bollinger Bands overlay.
 
     This is a convenience function specifically for displaying Bollinger Bands,
-    which are commonly used in technical analysis.
+    which are commonly used in technical analysis. The chart will include a legend
+    to identify the upper, middle, and lower Bollinger Bands.
 
     Args:
         df: DataFrame with OHLCV data and datetime index
@@ -164,7 +222,7 @@ def generate_ohlcv_chart_with_bollinger_bands(
         figsize: Figure size
 
     Returns:
-        Base64 encoded string representation of the chart image
+        Base64 encoded string representation of the chart image with legend
     """
     # Look for Bollinger Band columns in the DataFrame
     bb_upper_col = f"BBU_{bb_period}_{bb_std}"
@@ -172,6 +230,7 @@ def generate_ohlcv_chart_with_bollinger_bands(
     bb_lower_col = f"BBL_{bb_period}_{bb_std}"
 
     indicators: List[str] = []
+    # Order them for better legend display (upper, middle, lower)
     for col in [bb_upper_col, bb_middle_col, bb_lower_col]:
         if col in df.columns:
             indicators.append(col)
@@ -193,6 +252,9 @@ def generate_ohlcv_chart_with_emas(
     """
     Generate an OHLCV chart with EMA overlays.
 
+    This function creates a chart with multiple EMA lines and includes a legend
+    to identify each EMA period clearly.
+
     Args:
         df: DataFrame with OHLCV data and datetime index
         ema_periods: List of EMA periods to include (e.g., [20, 50, 200])
@@ -200,14 +262,14 @@ def generate_ohlcv_chart_with_emas(
         figsize: Figure size
 
     Returns:
-        Base64 encoded string representation of the chart image
+        Base64 encoded string representation of the chart image with legend
     """
     if ema_periods is None:
         ema_periods = [20, 50, 200]  # Default EMAs
 
-    # Look for EMA columns in the DataFrame
+    # Look for EMA columns in the DataFrame and sort by period for better legend order
     ema_indicators = []
-    for period in ema_periods:
+    for period in sorted(ema_periods):  # Sort to maintain consistent order
         ema_col = f"EMA_{period}"
         if ema_col in df.columns:
             ema_indicators.append(ema_col)
