@@ -44,6 +44,7 @@ async def analyze_pair(request: AnalysisRequest):
                 status=result["status"],
                 analysis=result["analysis"],
                 message=None,
+                chart_image_base64=result.get("chart_image_base64"),
             )
         else:
             # Return error response with appropriate message
@@ -51,6 +52,7 @@ async def analyze_pair(request: AnalysisRequest):
                 status=result["status"],
                 analysis=None,
                 message=result["message"],
+                chart_image_base64=None,
             )
     except Exception as e:
         logger.error(f"Error during analysis: {str(e)}")

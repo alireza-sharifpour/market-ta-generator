@@ -21,6 +21,9 @@ class AnalysisRequest(BaseModel):
 class AnalysisResponse(BaseModel):
     """
     Model representing the response from the /analyze endpoint.
+
+    This model supports both Phase 1/2 responses (basic analysis) and Phase 3 responses
+    (analysis with optional chart generation).
     """
 
     status: str = Field(..., description="Response status (success or error)")
@@ -28,3 +31,7 @@ class AnalysisResponse(BaseModel):
         None, description="Generated technical analysis text"
     )
     message: Optional[str] = Field(None, description="Error message in case of failure")
+    chart_image_base64: Optional[str] = Field(
+        None,
+        description="Base64 encoded chart image (Phase 3). Format: data:image/png;base64,...",
+    )
