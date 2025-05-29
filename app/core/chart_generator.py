@@ -119,6 +119,7 @@ def filter_chart_indicators(df: pd.DataFrame) -> List[str]:
 def generate_ohlcv_chart(
     df: pd.DataFrame,
     indicators_to_plot: Optional[List[str]] = None,
+    sr_levels: Optional[Dict[str, List[float]]] = None,
     chart_style: str = "yahoo",
     figsize: tuple = (12, 8),
     add_watermark_flag: bool = True,
@@ -134,6 +135,7 @@ def generate_ohlcv_chart(
     - Candlestick price data (OHLC)
     - Volume bars below the price chart
     - Optional technical indicators overlay with legend
+    - Optional Support and Resistance levels as horizontal lines
     - Optional watermark
 
     Args:
@@ -142,6 +144,8 @@ def generate_ohlcv_chart(
         indicators_to_plot: Optional list of indicator column names to overlay
                            (e.g., ['EMA_20', 'EMA_50', 'RSI_14'])
                            If None and use_filtered_indicators is True, will use filtered indicators
+        sr_levels: Optional dictionary with support and resistance levels
+                  Expected format: {'support': [list of levels], 'resistance': [list of levels]}
         chart_style: Style for the chart ('yahoo', 'charles', 'tradingview', etc.)
         figsize: Tuple specifying the figure size (width, height)
         add_watermark_flag: Whether to add a watermark to the chart
@@ -242,23 +246,105 @@ def generate_ohlcv_chart(
         logger.info("Generating chart with mplfinance...")
         fig, axes = mpf.plot(df, **chart_config)
 
-        # Add legend for indicators if any were plotted
-        if legend_labels:
-            # Get the main price axis (usually the first one)
-            price_ax = axes[0] if isinstance(axes, (list, tuple)) else axes
+        # Get the main price axis for adding S/R levels and legend
+        price_ax = axes[0] if isinstance(axes, (list, tuple)) else axes
 
+        # Add Support and Resistance levels if provided
+        if sr_levels:
+            logger.info("Adding Support and Resistance levels to chart")
+
+            # Get current price range for better visualization
+            price_min = df["Low"].min()
+            price_max = df["High"].max()
+
+            # Add resistance levels (red horizontal lines)
+            if "resistance" in sr_levels and sr_levels["resistance"]:
+                for level in sr_levels["resistance"]:
+                    # Only show levels within reasonable range of current data
+                    if price_min * 0.8 <= level <= price_max * 1.2:
+                        price_ax.axhline(
+                            y=level,
+                            color="red",
+                            linestyle="--",
+                            linewidth=1.5,
+                            alpha=0.7,
+                            zorder=10,
+                        )
+                        # Add text label for the level
+                        price_ax.text(
+                            len(df) * 0.02,  # Position near left side
+                            level,
+                            f"R: {level:.4f}",
+                            color="red",
+                            fontsize=8,
+                            alpha=0.8,
+                            verticalalignment="bottom",
+                            zorder=20,
+                            bbox=dict(
+                                boxstyle="round,pad=0.3", facecolor="white", alpha=0.7
+                            ),
+                        )
+
+                # Add resistance to legend
+                legend_labels.append(("Resistance", "red"))
+                logger.info(
+                    f"Added {len([l for l in sr_levels['resistance'] if price_min * 0.8 <= l <= price_max * 1.2])} resistance levels"
+                )
+
+            # Add support levels (green horizontal lines)
+            if "support" in sr_levels and sr_levels["support"]:
+                for level in sr_levels["support"]:
+                    # Only show levels within reasonable range of current data
+                    if price_min * 0.8 <= level <= price_max * 1.2:
+                        price_ax.axhline(
+                            y=level,
+                            color="green",
+                            linestyle="--",
+                            linewidth=1.5,
+                            alpha=0.7,
+                            zorder=10,
+                        )
+                        # Add text label for the level
+                        price_ax.text(
+                            len(df) * 0.02,  # Position near left side
+                            level,
+                            f"S: {level:.4f}",
+                            color="green",
+                            fontsize=8,
+                            alpha=0.8,
+                            verticalalignment="top",
+                            zorder=20,
+                            bbox=dict(
+                                boxstyle="round,pad=0.3", facecolor="white", alpha=0.7
+                            ),
+                        )
+
+                # Add support to legend
+                legend_labels.append(("Support", "green"))
+                logger.info(
+                    f"Added {len([l for l in sr_levels['support'] if price_min * 0.8 <= l <= price_max * 1.2])} support levels"
+                )
+
+        # Add legend for indicators and S/R levels if any were plotted
+        if legend_labels:
             # Create legend entries
             legend_handles = []
             legend_names = []
 
             for label, color in legend_labels:
-                # Create a line for the legend
-                handle = Line2D([0], [0], color=color, linewidth=2, alpha=0.8)
+                if label in ["Support", "Resistance"]:
+                    # Create dashed line for S/R levels
+                    handle = Line2D(
+                        [0], [0], color=color, linestyle="--", linewidth=1.5, alpha=0.7
+                    )
+                else:
+                    # Create solid line for indicators
+                    handle = Line2D([0], [0], color=color, linewidth=2, alpha=0.8)
                 legend_handles.append(handle)
                 legend_names.append(label)
 
             # Add the legend to the price chart
-            price_ax.legend(
+            legend = price_ax.legend(
                 legend_handles,
                 legend_names,
                 loc="upper left",
@@ -268,8 +354,10 @@ def generate_ohlcv_chart(
                 framealpha=0.9,
                 fontsize=10,
             )
+            # Set the legend to appear above all other elements
+            legend.set_zorder(30)
 
-            logger.info(f"Added legend with {len(legend_labels)} indicators")
+            logger.info(f"Added legend with {len(legend_labels)} items")
 
         # Add watermark if requested
         if add_watermark_flag:
@@ -313,6 +401,7 @@ def generate_ohlcv_chart_with_bollinger_bands(
     df: pd.DataFrame,
     bb_period: int = 20,
     bb_std: float = 2.0,
+    sr_levels: Optional[Dict[str, List[float]]] = None,
     chart_style: str = "yahoo",
     figsize: tuple = (12, 8),
     add_watermark_flag: bool = True,
@@ -331,6 +420,7 @@ def generate_ohlcv_chart_with_bollinger_bands(
         df: DataFrame with OHLCV data and datetime index
         bb_period: Period for Bollinger Bands calculation
         bb_std: Standard deviation multiplier for Bollinger Bands
+        sr_levels: Optional dictionary with support and resistance levels
         chart_style: Style for the chart
         figsize: Figure size
         add_watermark_flag: Whether to add a watermark to the chart
@@ -346,6 +436,7 @@ def generate_ohlcv_chart_with_bollinger_bands(
         return generate_ohlcv_chart(
             df=df,
             indicators_to_plot=None,  # Will use filter_chart_indicators
+            sr_levels=sr_levels,
             chart_style=chart_style,
             figsize=figsize,
             add_watermark_flag=add_watermark_flag,
@@ -371,6 +462,7 @@ def generate_ohlcv_chart_with_bollinger_bands(
     return generate_ohlcv_chart(
         df=df,
         indicators_to_plot=indicators,
+        sr_levels=sr_levels,
         chart_style=chart_style,
         figsize=figsize,
         add_watermark_flag=add_watermark_flag,
@@ -383,6 +475,7 @@ def generate_ohlcv_chart_with_bollinger_bands(
 def generate_ohlcv_chart_with_emas(
     df: pd.DataFrame,
     ema_periods: Optional[List[int]] = None,
+    sr_levels: Optional[Dict[str, List[float]]] = None,
     chart_style: str = "yahoo",
     figsize: tuple = (12, 8),
     add_watermark_flag: bool = True,
@@ -399,6 +492,7 @@ def generate_ohlcv_chart_with_emas(
     Args:
         df: DataFrame with OHLCV data and datetime index
         ema_periods: List of EMA periods to include (e.g., [20, 50, 200])
+        sr_levels: Optional dictionary with support and resistance levels
         chart_style: Style for the chart
         figsize: Figure size
         add_watermark_flag: Whether to add a watermark to the chart
@@ -414,6 +508,7 @@ def generate_ohlcv_chart_with_emas(
         return generate_ohlcv_chart(
             df=df,
             indicators_to_plot=None,  # Will use filter_chart_indicators
+            sr_levels=sr_levels,
             chart_style=chart_style,
             figsize=figsize,
             add_watermark_flag=add_watermark_flag,
@@ -439,6 +534,7 @@ def generate_ohlcv_chart_with_emas(
     return generate_ohlcv_chart(
         df=df,
         indicators_to_plot=ema_indicators,
+        sr_levels=sr_levels,
         chart_style=chart_style,
         figsize=figsize,
         add_watermark_flag=add_watermark_flag,
@@ -490,3 +586,65 @@ def list_available_indicators(df: pd.DataFrame) -> Dict[str, List[str]]:
 
     # Remove empty categories
     return {k: v for k, v in indicators.items() if v}
+
+
+def generate_ohlcv_chart_with_support_resistance(
+    df: pd.DataFrame,
+    sr_levels: Dict[str, List[float]],
+    indicators_to_plot: Optional[List[str]] = None,
+    chart_style: str = "yahoo",
+    figsize: tuple = (12, 8),
+    add_watermark_flag: bool = True,
+    watermark_text: str = "@amirambit",
+    watermark_config: Optional[Dict] = None,
+    use_filtered_indicators: bool = True,
+) -> str:
+    """
+    Generate an OHLCV chart with prominent Support and Resistance level display.
+
+    This is a convenience function specifically designed to highlight Support and
+    Resistance levels on the chart. It provides a clean interface for displaying
+    S/R levels with optional technical indicators.
+
+    Args:
+        df: DataFrame with OHLCV data and datetime index
+        sr_levels: Dictionary with support and resistance levels
+                  Required format: {'support': [list of levels], 'resistance': [list of levels]}
+        indicators_to_plot: Optional list of indicator column names to overlay
+        chart_style: Style for the chart
+        figsize: Figure size
+        add_watermark_flag: Whether to add a watermark to the chart
+        watermark_text: Text to display as watermark
+        watermark_config: Optional dictionary with watermark styling options
+        use_filtered_indicators: If True and indicators_to_plot is None, use only EMA50 and EMA9
+
+    Returns:
+        Base64 encoded string representation of the chart image with S/R levels highlighted
+
+    Raises:
+        ValueError: If sr_levels is None or empty
+    """
+    if not sr_levels:
+        logger.error("Support and Resistance levels are required for this chart type")
+        raise ValueError("sr_levels parameter is required and cannot be empty")
+
+    # Validate sr_levels structure
+    if not isinstance(sr_levels, dict):
+        raise ValueError("sr_levels must be a dictionary")
+
+    if "support" not in sr_levels and "resistance" not in sr_levels:
+        raise ValueError("sr_levels must contain 'support' and/or 'resistance' keys")
+
+    logger.info("Generating OHLCV chart with highlighted Support and Resistance levels")
+
+    return generate_ohlcv_chart(
+        df=df,
+        indicators_to_plot=indicators_to_plot,
+        sr_levels=sr_levels,
+        chart_style=chart_style,
+        figsize=figsize,
+        add_watermark_flag=add_watermark_flag,
+        watermark_text=watermark_text,
+        watermark_config=watermark_config,
+        use_filtered_indicators=use_filtered_indicators,
+    )
