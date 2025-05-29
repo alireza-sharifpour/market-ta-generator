@@ -10,14 +10,12 @@ from app.config import DEFAULT_SIZE, DEFAULT_TIMEFRAME
 from app.core.chart_generator import generate_ohlcv_chart
 from app.core.data_processor import (
     add_technical_indicators,
-    format_data_for_llm,
     identify_support_resistance,
     prepare_llm_input_phase2,
     process_raw_data,
 )
 from app.external.lbank_client import LBankAPIError, LBankConnectionError, fetch_ohlcv
 from app.external.llm_client import (
-    generate_basic_analysis,
     generate_detailed_analysis,
 )
 
@@ -29,111 +27,6 @@ class AnalysisError(Exception):
     """Exception raised for errors in the analysis service."""
 
     pass
-
-
-def run_phase1_analysis(
-    pair: str, timeframe: Optional[str] = None, limit: Optional[int] = None
-) -> Dict[str, Any]:
-    """
-    Orchestrates the Phase 1 analysis workflow:
-    1. Fetch raw OHLCV data from LBank API
-    2. Process the raw data into a DataFrame
-    3. Format the data for LLM consumption
-    4. Generate a basic analysis using the LLM
-
-    Args:
-        pair: Trading pair symbol (e.g., "eth_usdt")
-        timeframe: Time interval for each candle (e.g., "day1", "hour4")
-                   Defaults to "day1" if None
-        limit: Number of candles to fetch (1-2000)
-               Defaults to DEFAULT_SIZE if None
-
-    Returns:
-        Dictionary with analysis results containing:
-        - "status": "success" or "error"
-        - "analysis": The generated analysis text (if successful)
-        - "message": Error message (if failed)
-
-    Raises:
-        AnalysisError: If any part of the analysis process fails
-    """
-    try:
-        # Use provided values or defaults
-        timeframe_to_use = DEFAULT_TIMEFRAME if timeframe is None else timeframe
-        limit_to_use = DEFAULT_SIZE if limit is None else limit
-
-        logger.info(
-            f"Starting Phase 1 analysis for pair: {pair}, timeframe: {timeframe_to_use}, limit: {limit_to_use}"
-        )
-
-        # Step 1: Fetch raw OHLCV data from LBank API
-        logger.info(f"Fetching OHLCV data for {pair}")
-        try:
-            raw_data = fetch_ohlcv(pair, timeframe=timeframe_to_use, limit=limit_to_use)
-            logger.info(f"Successfully fetched {len(raw_data)} data points for {pair}")
-        except (LBankAPIError, LBankConnectionError) as e:
-            error_msg = f"Failed to fetch data from LBank: {str(e)}"
-            logger.error(error_msg)
-            return {"status": "error", "message": error_msg}
-
-        # Step 2: Process the raw data into a DataFrame
-        logger.info("Processing raw data into DataFrame")
-        try:
-            df = process_raw_data(raw_data)
-            logger.info(
-                f"Successfully processed data into DataFrame with {len(df)} rows"
-            )
-        except ValueError as e:
-            error_msg = f"Failed to process raw data: {str(e)}"
-            logger.error(error_msg)
-            return {"status": "error", "message": error_msg}
-
-        # Step 3: Format the data for LLM consumption
-        logger.info("Formatting data for LLM")
-        try:
-            formatted_data = format_data_for_llm(df, timeframe=timeframe_to_use)
-            logger.info("Successfully formatted data for LLM")
-        except Exception as e:
-            error_msg = f"Failed to format data for LLM: {str(e)}"
-            logger.error(error_msg)
-            return {"status": "error", "message": error_msg}
-
-        # Step 4: Generate analysis using LLM
-        logger.info("Generating analysis using LLM")
-        try:
-            analysis_text = generate_basic_analysis(
-                pair, formatted_data, timeframe=timeframe_to_use
-            )
-            logger.info("Successfully generated analysis")
-        except Exception as e:
-            error_msg = f"Failed to generate analysis with LLM: {str(e)}"
-            logger.error(error_msg)
-            return {"status": "error", "message": error_msg}
-
-        # Step 5: Generate chart (Phase 3)
-        logger.info("Generating OHLCV chart")
-        chart_image_base64 = None
-        try:
-            chart_image_base64 = generate_ohlcv_chart(df)
-            logger.info("Successfully generated chart")
-        except Exception as e:
-            # Chart generation is not critical - log the error but continue
-            error_msg = f"Failed to generate chart: {str(e)}"
-            logger.warning(error_msg)
-            chart_image_base64 = None
-
-        # Return successful result
-        return {
-            "status": "success",
-            "analysis": analysis_text,
-            "message": None,
-            "chart_image_base64": chart_image_base64,
-        }
-
-    except Exception as e:
-        error_msg = f"Unexpected error during analysis: {str(e)}"
-        logger.error(error_msg)
-        return {"status": "error", "message": error_msg}
 
 
 def run_phase2_analysis(
