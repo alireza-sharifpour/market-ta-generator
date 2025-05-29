@@ -30,11 +30,67 @@ INDICATOR_COLORS = [
 ]
 
 
+def add_watermark(fig, watermark_text: str = "@amirambit", **kwargs) -> None:
+    """
+    Add a watermark to a matplotlib figure.
+
+    Args:
+        fig: The matplotlib figure object
+        watermark_text: The text to display as watermark
+        **kwargs: Additional watermark styling options including:
+            - x: x position (default: 0.5)
+            - y: y position (default: 0.5)
+            - fontsize: font size (default: 20)
+            - color: text color (default: 'gray')
+            - alpha: transparency (default: 0.3)
+            - rotation: rotation angle in degrees (default: 45)
+            - ha: horizontal alignment (default: 'center')
+            - va: vertical alignment (default: 'center')
+            - zorder: drawing order (default: 1000)
+    """
+    # Default watermark styling
+    watermark_config = {
+        "x": 0.55,
+        "y": 0.55,
+        "fontsize": 80,
+        "color": "gray",
+        "alpha": 0.2,
+        "rotation": 0,
+        "ha": "center",
+        "va": "center",
+        "zorder": 1000,  # High zorder to ensure it's on top
+        "transform": fig.transFigure,  # Use figure coordinates
+    }
+
+    # Update with any provided kwargs
+    watermark_config.update(kwargs)
+
+    # Add the watermark text to the figure
+    fig.text(
+        watermark_config["x"],
+        watermark_config["y"],
+        watermark_text,
+        fontsize=watermark_config["fontsize"],
+        color=watermark_config["color"],
+        alpha=watermark_config["alpha"],
+        rotation=watermark_config["rotation"],
+        ha=watermark_config["ha"],
+        va=watermark_config["va"],
+        zorder=watermark_config["zorder"],
+        transform=watermark_config["transform"],
+    )
+
+    logger.info(f"Added watermark '{watermark_text}' to chart")
+
+
 def generate_ohlcv_chart(
     df: pd.DataFrame,
     indicators_to_plot: Optional[List[str]] = None,
     chart_style: str = "yahoo",
     figsize: tuple = (12, 8),
+    add_watermark_flag: bool = True,
+    watermark_text: str = "@amirambit",
+    watermark_config: Optional[Dict] = None,
 ) -> str:
     """
     Generate an OHLCV chart with candlesticks and optional technical indicators.
@@ -44,6 +100,7 @@ def generate_ohlcv_chart(
     - Candlestick price data (OHLC)
     - Volume bars below the price chart
     - Optional technical indicators overlay with legend
+    - Optional watermark
 
     Args:
         df: DataFrame with OHLCV data and datetime index
@@ -52,6 +109,9 @@ def generate_ohlcv_chart(
                            (e.g., ['EMA_20', 'EMA_50', 'RSI_14'])
         chart_style: Style for the chart ('yahoo', 'charles', 'tradingview', etc.)
         figsize: Tuple specifying the figure size (width, height)
+        add_watermark_flag: Whether to add a watermark to the chart
+        watermark_text: Text to display as watermark
+        watermark_config: Optional dictionary with watermark styling options
 
     Returns:
         Base64 encoded string representation of the chart image
@@ -167,6 +227,11 @@ def generate_ohlcv_chart(
 
             logger.info(f"Added legend with {len(legend_labels)} indicators")
 
+        # Add watermark if requested
+        if add_watermark_flag:
+            watermark_kwargs = watermark_config or {}
+            add_watermark(fig, watermark_text, **watermark_kwargs)
+
         # Convert the figure to base64 encoded string
         logger.info("Converting chart to base64 format...")
         buffer = io.BytesIO()
@@ -206,6 +271,9 @@ def generate_ohlcv_chart_with_bollinger_bands(
     bb_std: float = 2.0,
     chart_style: str = "yahoo",
     figsize: tuple = (12, 8),
+    add_watermark_flag: bool = True,
+    watermark_text: str = "@amirambit",
+    watermark_config: Optional[Dict] = None,
 ) -> str:
     """
     Generate an OHLCV chart with Bollinger Bands overlay.
@@ -220,6 +288,9 @@ def generate_ohlcv_chart_with_bollinger_bands(
         bb_std: Standard deviation multiplier for Bollinger Bands
         chart_style: Style for the chart
         figsize: Figure size
+        add_watermark_flag: Whether to add a watermark to the chart
+        watermark_text: Text to display as watermark
+        watermark_config: Optional dictionary with watermark styling options
 
     Returns:
         Base64 encoded string representation of the chart image with legend
@@ -239,7 +310,13 @@ def generate_ohlcv_chart_with_bollinger_bands(
         logger.warning("No Bollinger Band columns found, generating chart without them")
 
     return generate_ohlcv_chart(
-        df=df, indicators_to_plot=indicators, chart_style=chart_style, figsize=figsize
+        df=df,
+        indicators_to_plot=indicators,
+        chart_style=chart_style,
+        figsize=figsize,
+        add_watermark_flag=add_watermark_flag,
+        watermark_text=watermark_text,
+        watermark_config=watermark_config,
     )
 
 
@@ -248,6 +325,9 @@ def generate_ohlcv_chart_with_emas(
     ema_periods: Optional[List[int]] = None,
     chart_style: str = "yahoo",
     figsize: tuple = (12, 8),
+    add_watermark_flag: bool = True,
+    watermark_text: str = "@amirambit",
+    watermark_config: Optional[Dict] = None,
 ) -> str:
     """
     Generate an OHLCV chart with EMA overlays.
@@ -260,6 +340,9 @@ def generate_ohlcv_chart_with_emas(
         ema_periods: List of EMA periods to include (e.g., [20, 50, 200])
         chart_style: Style for the chart
         figsize: Figure size
+        add_watermark_flag: Whether to add a watermark to the chart
+        watermark_text: Text to display as watermark
+        watermark_config: Optional dictionary with watermark styling options
 
     Returns:
         Base64 encoded string representation of the chart image with legend
@@ -282,6 +365,9 @@ def generate_ohlcv_chart_with_emas(
         indicators_to_plot=ema_indicators,
         chart_style=chart_style,
         figsize=figsize,
+        add_watermark_flag=add_watermark_flag,
+        watermark_text=watermark_text,
+        watermark_config=watermark_config,
     )
 
 
