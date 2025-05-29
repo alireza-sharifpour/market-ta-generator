@@ -83,6 +83,39 @@ def add_watermark(fig, watermark_text: str = "@amirambit", **kwargs) -> None:
     logger.info(f"Added watermark '{watermark_text}' to chart")
 
 
+def filter_chart_indicators(df: pd.DataFrame) -> List[str]:
+    """
+    Filter available indicators to show only EMA50 and EMA9 on charts.
+
+    This function is used to limit chart display to specific indicators while
+    keeping all calculated indicators available for LLM analysis and reporting.
+
+    Args:
+        df: DataFrame with OHLCV data and technical indicators
+
+    Returns:
+        List of indicator column names to display on charts (EMA50 and EMA9 only)
+    """
+    chart_indicators = []
+
+    # Define the specific indicators to show on charts
+    target_indicators = ["EMA_9", "EMA_50"]
+
+    for indicator in target_indicators:
+        if indicator in df.columns:
+            # Check if the indicator has valid data
+            if not df[indicator].isna().all():
+                chart_indicators.append(indicator)
+                logger.info(f"Added {indicator} to chart display")
+            else:
+                logger.warning(f"Indicator {indicator} has no valid data, skipping")
+        else:
+            logger.warning(f"Indicator {indicator} not found in DataFrame")
+
+    logger.info(f"Filtered chart indicators: {chart_indicators}")
+    return chart_indicators
+
+
 def generate_ohlcv_chart(
     df: pd.DataFrame,
     indicators_to_plot: Optional[List[str]] = None,
@@ -91,6 +124,7 @@ def generate_ohlcv_chart(
     add_watermark_flag: bool = True,
     watermark_text: str = "@amirambit",
     watermark_config: Optional[Dict] = None,
+    use_filtered_indicators: bool = True,
 ) -> str:
     """
     Generate an OHLCV chart with candlesticks and optional technical indicators.
@@ -107,11 +141,13 @@ def generate_ohlcv_chart(
             Must have columns: Open, High, Low, Close, Volume
         indicators_to_plot: Optional list of indicator column names to overlay
                            (e.g., ['EMA_20', 'EMA_50', 'RSI_14'])
+                           If None and use_filtered_indicators is True, will use filtered indicators
         chart_style: Style for the chart ('yahoo', 'charles', 'tradingview', etc.)
         figsize: Tuple specifying the figure size (width, height)
         add_watermark_flag: Whether to add a watermark to the chart
         watermark_text: Text to display as watermark
         watermark_config: Optional dictionary with watermark styling options
+        use_filtered_indicators: If True and indicators_to_plot is None, use only EMA50 and EMA9
 
     Returns:
         Base64 encoded string representation of the chart image
@@ -136,6 +172,14 @@ def generate_ohlcv_chart(
     if not isinstance(df.index, pd.DatetimeIndex):
         logger.error("DataFrame index must be DatetimeIndex")
         raise ValueError("DataFrame index must be DatetimeIndex")
+
+    # Determine which indicators to plot
+    if indicators_to_plot is None and use_filtered_indicators:
+        indicators_to_plot = filter_chart_indicators(df)
+        logger.info("Using filtered indicators for chart display")
+    elif indicators_to_plot is None:
+        indicators_to_plot = []
+        logger.info("No indicators specified for chart display")
 
     try:
         logger.info(f"Generating OHLCV chart for {len(df)} data points")
@@ -274,6 +318,7 @@ def generate_ohlcv_chart_with_bollinger_bands(
     add_watermark_flag: bool = True,
     watermark_text: str = "@amirambit",
     watermark_config: Optional[Dict] = None,
+    use_filtered_indicators: bool = True,
 ) -> str:
     """
     Generate an OHLCV chart with Bollinger Bands overlay.
@@ -291,11 +336,25 @@ def generate_ohlcv_chart_with_bollinger_bands(
         add_watermark_flag: Whether to add a watermark to the chart
         watermark_text: Text to display as watermark
         watermark_config: Optional dictionary with watermark styling options
+        use_filtered_indicators: If True, use only EMA50 and EMA9 instead of Bollinger Bands
 
     Returns:
         Base64 encoded string representation of the chart image with legend
     """
-    # Look for Bollinger Band columns in the DataFrame
+    # If using filtered indicators, prioritize EMA50 and EMA9 over Bollinger Bands
+    if use_filtered_indicators:
+        return generate_ohlcv_chart(
+            df=df,
+            indicators_to_plot=None,  # Will use filter_chart_indicators
+            chart_style=chart_style,
+            figsize=figsize,
+            add_watermark_flag=add_watermark_flag,
+            watermark_text=watermark_text,
+            watermark_config=watermark_config,
+            use_filtered_indicators=True,
+        )
+
+    # Original Bollinger Bands logic (when use_filtered_indicators=False)
     bb_upper_col = f"BBU_{bb_period}_{bb_std}"
     bb_middle_col = f"BBM_{bb_period}_{bb_std}"
     bb_lower_col = f"BBL_{bb_period}_{bb_std}"
@@ -317,6 +376,7 @@ def generate_ohlcv_chart_with_bollinger_bands(
         add_watermark_flag=add_watermark_flag,
         watermark_text=watermark_text,
         watermark_config=watermark_config,
+        use_filtered_indicators=False,  # Don't double-filter
     )
 
 
@@ -328,6 +388,7 @@ def generate_ohlcv_chart_with_emas(
     add_watermark_flag: bool = True,
     watermark_text: str = "@amirambit",
     watermark_config: Optional[Dict] = None,
+    use_filtered_indicators: bool = True,
 ) -> str:
     """
     Generate an OHLCV chart with EMA overlays.
@@ -343,10 +404,25 @@ def generate_ohlcv_chart_with_emas(
         add_watermark_flag: Whether to add a watermark to the chart
         watermark_text: Text to display as watermark
         watermark_config: Optional dictionary with watermark styling options
+        use_filtered_indicators: If True, use only EMA50 and EMA9 regardless of ema_periods
 
     Returns:
         Base64 encoded string representation of the chart image with legend
     """
+    # If using filtered indicators, use EMA50 and EMA9 regardless of ema_periods parameter
+    if use_filtered_indicators:
+        return generate_ohlcv_chart(
+            df=df,
+            indicators_to_plot=None,  # Will use filter_chart_indicators
+            chart_style=chart_style,
+            figsize=figsize,
+            add_watermark_flag=add_watermark_flag,
+            watermark_text=watermark_text,
+            watermark_config=watermark_config,
+            use_filtered_indicators=True,
+        )
+
+    # Original EMA logic (when use_filtered_indicators=False)
     if ema_periods is None:
         ema_periods = [20, 50, 200]  # Default EMAs
 
@@ -368,6 +444,7 @@ def generate_ohlcv_chart_with_emas(
         add_watermark_flag=add_watermark_flag,
         watermark_text=watermark_text,
         watermark_config=watermark_config,
+        use_filtered_indicators=False,  # Don't double-filter
     )
 
 
