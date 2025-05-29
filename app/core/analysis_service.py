@@ -264,21 +264,15 @@ def run_phase2_analysis(
         logger.info("Generating OHLCV chart with indicators")
         chart_image_base64 = None
         try:
-            # Determine which indicators to plot based on what's available
-            available_indicators = []
-            for col in df_with_indicators.columns:
-                if any(indicator in col for indicator in ["EMA", "SMA", "BB"]):
-                    available_indicators.append(col)
-
-            # Limit to a reasonable number of indicators for readability
-            indicators_to_plot = available_indicators[:5]  # Show up to 5 indicators
-
+            # Use the new filtered chart generation which will automatically
+            # show only EMA50 and EMA9 while keeping all indicators for LLM analysis
             chart_image_base64 = generate_ohlcv_chart(
                 df_with_indicators,
-                indicators_to_plot=indicators_to_plot if indicators_to_plot else None,
+                indicators_to_plot=None,  # Let the chart generator use filtered indicators
+                use_filtered_indicators=True,  # Use only EMA50 and EMA9
             )
             logger.info(
-                f"Successfully generated chart with indicators: {indicators_to_plot}"
+                "Successfully generated chart with filtered indicators (EMA50 and EMA9)"
             )
         except Exception as e:
             # Chart generation is not critical - log the error but continue
