@@ -232,19 +232,19 @@ def add_technical_indicators(
 
 def identify_support_resistance(
     df: DataFrame,
-    lookback_periods: int = 20,
-    cluster_threshold_percent: float = 0.5,
-    min_touches: int = 2,
+    lookback_periods: int = 10,  # Reduced from 20 to be less restrictive
+    cluster_threshold_percent: float = 1.0,  # Increased from 0.5 to group more levels
+    min_touches: int = 2,  # Reduced from 2 to allow single strong levels
     top_n_levels: int = 5,
 ) -> Dict[str, List[float]]:
     """
-    Identify support and resistance levels using a hybrid approach.
+    Identify support and resistance levels using a simplified swing point approach.
 
     Args:
         df: DataFrame with OHLCV data
-        lookback_periods: Window size for identifying swing points
-        cluster_threshold_percent: Percentage range for clustering nearby levels
-        min_touches: Minimum number of touches required to qualify as S/R
+        lookback_periods: Window size for identifying swing points (reduced for more sensitivity)
+        cluster_threshold_percent: Percentage range for clustering nearby levels (increased)
+        min_touches: Minimum number of touches required to qualify as S/R (reduced)
         top_n_levels: Number of top levels to return for each type
 
     Returns:
@@ -266,7 +266,7 @@ def identify_support_resistance(
         )
 
     try:
-        # Step 1: Identify swing highs and lows
+        # Step 1: Identify swing highs and lows using a simpler approach
         logger.info(
             f"Identifying swing points with lookback period of {lookback_periods}"
         )
@@ -276,41 +276,37 @@ def identify_support_resistance(
         swing_highs = []
         swing_lows = []
 
-        # Calculate rolling max and min within the lookback window
-        df_copy["rolling_high"] = (
-            df_copy["High"].rolling(window=lookback_periods, center=True).max()
-        )
-        df_copy["rolling_low"] = (
-            df_copy["Low"].rolling(window=lookback_periods, center=True).min()
-        )
+        # Use a simpler approach: find local maxima/minima within smaller windows
+        # Check each point to see if it's higher/lower than surrounding points
+        window_half = lookback_periods // 2  # Use half the lookback for each side
 
-        # Find points where current high/low matches the rolling max/min
-        for i in range(lookback_periods, len(df_copy) - lookback_periods):
-            # Check for swing high (current high is local maximum)
-            if df_copy["High"].iloc[i] == df_copy["rolling_high"].iloc[i]:
-                if all(
-                    df_copy["High"].iloc[i] >= df_copy["High"].iloc[i - j]
-                    for j in range(1, lookback_periods + 1)
-                ) and all(
-                    df_copy["High"].iloc[i] >= df_copy["High"].iloc[i + j]
-                    for j in range(1, lookback_periods + 1)
-                ):
-                    swing_highs.append(
-                        (i, df_copy["High"].iloc[i])
-                    )  # Store index position instead of timestamp
+        for i in range(window_half, len(df_copy) - window_half):
+            current_high = df_copy["High"].iloc[i]
+            current_low = df_copy["Low"].iloc[i]
 
-            # Check for swing low (current low is local minimum)
-            if df_copy["Low"].iloc[i] == df_copy["rolling_low"].iloc[i]:
-                if all(
-                    df_copy["Low"].iloc[i] <= df_copy["Low"].iloc[i - j]
-                    for j in range(1, lookback_periods + 1)
-                ) and all(
-                    df_copy["Low"].iloc[i] <= df_copy["Low"].iloc[i + j]
-                    for j in range(1, lookback_periods + 1)
-                ):
-                    swing_lows.append(
-                        (i, df_copy["Low"].iloc[i])
-                    )  # Store index position instead of timestamp
+            # Check for swing high: higher than points within window_half on both sides
+            is_swing_high = True
+            for j in range(
+                max(0, i - window_half), min(len(df_copy), i + window_half + 1)
+            ):
+                if j != i and df_copy["High"].iloc[j] >= current_high:
+                    is_swing_high = False
+                    break
+
+            if is_swing_high:
+                swing_highs.append((i, current_high))
+
+            # Check for swing low: lower than points within window_half on both sides
+            is_swing_low = True
+            for j in range(
+                max(0, i - window_half), min(len(df_copy), i + window_half + 1)
+            ):
+                if j != i and df_copy["Low"].iloc[j] <= current_low:
+                    is_swing_low = False
+                    break
+
+            if is_swing_low:
+                swing_lows.append((i, current_low))
 
         logger.info(
             f"Found {len(swing_highs)} swing highs and {len(swing_lows)} swing lows"
