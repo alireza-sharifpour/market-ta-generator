@@ -30,6 +30,9 @@ class AnalysisResponse(BaseModel):
     analysis: Optional[str] = Field(
         None, description="Generated technical analysis text"
     )
+    analysis_summarized: Optional[str] = Field(
+        None, description="Short summarized analysis in Persian format"
+    )
     message: Optional[str] = Field(None, description="Error message in case of failure")
     chart_image_base64: Optional[str] = Field(
         None,

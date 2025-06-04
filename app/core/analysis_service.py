@@ -19,6 +19,7 @@ from app.external.lbank_client import LBankAPIError, LBankConnectionError, fetch
 from app.external.llm_client import (
     generate_basic_analysis,
     generate_detailed_analysis,
+    generate_summarized_analysis,
 )
 
 # Set up logging
@@ -260,6 +261,20 @@ def run_phase2_analysis(
             )  # exc_info for more details on LLM errors
             return {"status": "error", "message": error_msg}
 
+        # Step 7: Generate summarized analysis using LLM
+        logger.info("Generating summarized analysis using LLM")
+        analysis_summarized = None
+        try:
+            analysis_summarized = generate_summarized_analysis(
+                pair, structured_llm_input, timeframe=timeframe_to_use
+            )
+            logger.info("Successfully generated summarized analysis")
+        except Exception as e:
+            # Summarized analysis is not critical - log the error but continue
+            error_msg = f"Failed to generate summarized analysis with LLM: {str(e)}"
+            logger.warning(error_msg)
+            analysis_summarized = None
+
         # Generate chart with indicators (Phase 3)
         logger.info("Generating OHLCV chart with indicators")
         chart_image_base64 = None
@@ -289,6 +304,7 @@ def run_phase2_analysis(
         return {
             "status": "success",
             "analysis": analysis_text,
+            "analysis_summarized": analysis_summarized,
             "message": None,
             "chart_image_base64": chart_image_base64,
         }
