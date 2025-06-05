@@ -324,13 +324,13 @@ def fetch_ohlcv(
 def fetch_current_price(pair: str) -> Dict[str, Any]:
     """
     Fetches the current price and 24hr statistics for a trading pair from LBank API.
-    
+
     Args:
         pair: Trading pair symbol (e.g., "eth_btc", "btc_usdt")
-        
+
     Returns:
         Dictionary containing current price and 24hr statistics
-        
+
     Raises:
         LBankAPIError: If the LBank API returns an error
         LBankConnectionError: If there's a connection issue
@@ -338,34 +338,32 @@ def fetch_current_price(pair: str) -> Dict[str, Any]:
     """
     if not pair:
         raise ValueError("Trading pair is required")
-        
+
     # Use the 24hr ticker endpoint for comprehensive data
     url = urljoin(LBANK_API_BASE_URL, "/v2/ticker/24hr.do")
-    
-    params = {
-        "symbol": pair
-    }
-    
+
+    params = {"symbol": pair}
+
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
     }
-    
+
     logger.info(f"Fetching current price for {pair}")
     logger.info(f"Making request to URL: {url}")
-    
+
     try:
         # Make the API request
         response = requests.get(url, params=params, headers=headers, timeout=30)
-        
+
         # Check if the request was successful
         if response.status_code != 200:
             error_msg = f"LBank API returned status code {response.status_code}: {response.text}"
             logger.error(error_msg)
             raise LBankAPIError(error_msg)
-            
+
         # Parse the response
         response_data = response.json()
-        
+
         # Check for API errors
         if isinstance(response_data, dict):
             if (
@@ -375,18 +373,20 @@ def fetch_current_price(pair: str) -> Dict[str, Any]:
                 error_msg = f"LBank API error: {response_data.get('error_code', 'Unknown')}, {response_data.get('msg', '')}"
                 logger.error(error_msg)
                 raise LBankAPIError(error_msg)
-                
+
             # Extract the data
             if "data" in response_data:
                 data = response_data["data"]
-                
+
                 # The ticker API returns a list with one item for single symbol requests
                 if isinstance(data, list) and len(data) > 0:
                     ticker_data = data[0]
                 else:
                     ticker_data = data
-                    
-                logger.info(f"Successfully fetched current price for {pair}: {ticker_data.get('ticker', {}).get('latest', 'N/A')}")
+
+                logger.info(
+                    f"Successfully fetched current price for {pair}: {ticker_data.get('ticker', {}).get('latest', 'N/A')}"
+                )
                 return ticker_data
             else:
                 error_msg = "LBank API response does not contain data field"
@@ -396,7 +396,7 @@ def fetch_current_price(pair: str) -> Dict[str, Any]:
             error_msg = f"Unexpected response format from LBank API: {response_data}"
             logger.error(error_msg)
             raise LBankAPIError(error_msg)
-            
+
     except requests.exceptions.RequestException as e:
         error_msg = f"Connection error when querying LBank API: {str(e)}"
         logger.error(error_msg)
