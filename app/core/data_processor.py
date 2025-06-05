@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -404,7 +404,8 @@ def identify_support_resistance(
 
 
 def prepare_llm_input_phase2(
-    df_with_indicators: DataFrame, sr_levels: Dict[str, List[float]]
+    df_with_indicators: DataFrame, sr_levels: Dict[str, List[float]], 
+    current_price_data: Optional[Dict[str, Any]] = None
 ) -> str:
     """
     Extract key information from the indicator-enriched DataFrame and S/R levels
@@ -413,6 +414,7 @@ def prepare_llm_input_phase2(
     Args:
         df_with_indicators: DataFrame with OHLCV data and calculated technical indicators
         sr_levels: Dictionary with lists of support and resistance levels
+        current_price_data: Optional dictionary with current price data from ticker API
 
     Returns:
         Structured string with key market data, indicator values, trends, and S/R levels
@@ -440,6 +442,34 @@ def prepare_llm_input_phase2(
 
     # Prepare structured output
     output = "# MARKET DATA ANALYSIS\n\n"
+
+    # Add current price information if available
+    if current_price_data:
+        output += "## Current Market Price (Live)\n"
+        ticker = current_price_data.get("ticker", {})
+        if ticker:
+            current_price = ticker.get("latest")
+            if current_price:
+                output += f"- Current Price: {float(current_price):.4f}\n"
+                
+                # Calculate difference from last close
+                price_diff = float(current_price) - latest['Close']
+                price_diff_pct = (price_diff / latest['Close']) * 100
+                
+                output += f"- Change from Last Close: {price_diff:.4f} ({price_diff_pct:+.2f}%)\n"
+                
+                # Add 24hr statistics if available
+                high_24h = ticker.get("high")
+                low_24h = ticker.get("low")
+                vol_24h = ticker.get("vol")
+                
+                if high_24h:
+                    output += f"- 24h High: {float(high_24h):.4f}\n"
+                if low_24h:
+                    output += f"- 24h Low: {float(low_24h):.4f}\n"
+                if vol_24h:
+                    output += f"- 24h Volume: {float(vol_24h):.2f}\n"
+        output += "\n"
 
     # OHLCV summary
     output += f"## Latest OHLCV Data ({date_str})\n"
@@ -717,8 +747,13 @@ def prepare_llm_input_phase2(
     # Support and Resistance Levels
     output += "\n## Support and Resistance Levels\n"
 
-    # Current price for reference
-    current_price = latest["Close"]
+    # Current price for reference - use live price if available, otherwise use last close
+    if current_price_data and current_price_data.get("ticker", {}).get("latest"):
+        current_price = float(current_price_data["ticker"]["latest"])
+        output += f"*Using live current price: {current_price:.4f}*\n\n"
+    else:
+        current_price = latest["Close"]
+        output += f"*Using last close price: {current_price:.4f}*\n\n"
 
     # Process resistance levels (sort in ascending order)
     if "resistance" in sr_levels and sr_levels["resistance"]:
