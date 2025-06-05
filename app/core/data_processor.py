@@ -404,8 +404,9 @@ def identify_support_resistance(
 
 
 def prepare_llm_input_phase2(
-    df_with_indicators: DataFrame, sr_levels: Dict[str, List[float]], 
-    current_price_data: Optional[Dict[str, Any]] = None
+    df_with_indicators: DataFrame,
+    sr_levels: Dict[str, List[float]],
+    current_price_data: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Extract key information from the indicator-enriched DataFrame and S/R levels
@@ -451,18 +452,18 @@ def prepare_llm_input_phase2(
             current_price = ticker.get("latest")
             if current_price:
                 output += f"- Current Price: {float(current_price):.4f}\n"
-                
+
                 # Calculate difference from last close
-                price_diff = float(current_price) - latest['Close']
-                price_diff_pct = (price_diff / latest['Close']) * 100
-                
+                price_diff = float(current_price) - latest["Close"]
+                price_diff_pct = (price_diff / latest["Close"]) * 100
+
                 output += f"- Change from Last Close: {price_diff:.4f} ({price_diff_pct:+.2f}%)\n"
-                
+
                 # Add 24hr statistics if available
                 high_24h = ticker.get("high")
                 low_24h = ticker.get("low")
                 vol_24h = ticker.get("vol")
-                
+
                 if high_24h:
                     output += f"- 24h High: {float(high_24h):.4f}\n"
                 if low_24h:
