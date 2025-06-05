@@ -43,6 +43,7 @@ async def analyze_pair(request: AnalysisRequest):
             return AnalysisResponse(
                 status=result["status"],
                 analysis=result["analysis"],
+                analysis_summarized=result.get("analysis_summarized"),
                 message=None,
                 chart_image_base64=result.get("chart_image_base64"),
             )
@@ -51,6 +52,7 @@ async def analyze_pair(request: AnalysisRequest):
             return AnalysisResponse(
                 status=result["status"],
                 analysis=None,
+                analysis_summarized=None,
                 message=result["message"],
                 chart_image_base64=None,
             )
