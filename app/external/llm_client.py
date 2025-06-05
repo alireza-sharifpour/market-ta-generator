@@ -373,7 +373,7 @@ def generate_summarized_analysis(
         📊 تحلیل {pair} - تایم‌فریم {persian_timeframe_phrase}
 
         ▫️وضعیت کلی:
-        - قیمت لحظه‌ای: [current_price]
+        - قیمت لحظه‌ای: [current_price from "Current Market Price (Live)" section if available, otherwise use latest Close price]
         - روند بلندمدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
         - روند کوتاه‌مدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
         - حمایت مهم بعدی: [support_level]
@@ -393,7 +393,7 @@ def generate_summarized_analysis(
         - Use ONLY the provided structured data
         - For trend strength, use exactly one of: قوی, متوسط, ضعیف
         - For trend direction, use exactly one of: صعودی, نزولی, خنثی
-        - Extract current price from the latest OHLCV data
+        - Extract current price: Look for "Current Market Price (Live)" section first. If it exists, use the "Current Price" value. If not, use the Close price from "Latest OHLCV Data" section
         - Use identified Support/Resistance levels from the data
         - Base EMA recommendations on the actual EMA values provided
         - Keep recommendations practical and specific
