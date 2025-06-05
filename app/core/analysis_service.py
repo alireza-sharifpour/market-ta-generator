@@ -14,7 +14,7 @@ from app.core.data_processor import (
     prepare_llm_input_phase2,
     process_raw_data,
 )
-from app.external.lbank_client import LBankAPIError, LBankConnectionError, fetch_ohlcv
+from app.external.lbank_client import LBankAPIError, LBankConnectionError, fetch_ohlcv, fetch_current_price
 from app.external.llm_client import (
     generate_detailed_analysis,
 )
@@ -123,11 +123,23 @@ def run_phase2_analysis(
             logger.error(error_msg, exc_info=True)
             return {"status": "error", "message": error_msg}
 
-        # Step 5: Prepare structured data for LLM
+        # Step 5: Fetch current price
+        logger.info(f"Fetching current price for {pair}")
+        current_price_data = None
+        try:
+            current_price_data = fetch_current_price(pair)
+            logger.info(f"Successfully fetched current price data for {pair}")
+        except (LBankAPIError, LBankConnectionError) as e:
+            # Log the error but don't fail the analysis - current price is supplementary
+            logger.warning(f"Failed to fetch current price from LBank: {str(e)}")
+        except Exception as e:
+            logger.warning(f"Unexpected error fetching current price: {str(e)}")
+
+        # Step 6: Prepare structured data for LLM
         logger.info("Preparing structured data for LLM (Phase 2)")
         try:
             structured_llm_input = prepare_llm_input_phase2(
-                df_with_indicators, sr_levels
+                df_with_indicators, sr_levels, current_price_data
             )
             logger.info("Successfully prepared structured data for LLM")
         except ValueError as e:
