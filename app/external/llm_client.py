@@ -381,7 +381,7 @@ def generate_summarized_analysis(
 
         💭 توصیه عملی:
         - [Short practical recommendation based on indicators]
-        - نقطه ورود احتمالی: [entry suggestion based on EMAs/indicators]
+        - نقطه ورود احتمالی: [specific price range based on EMA levels, support levels, or pullback zones - e.g., "محدوده 105000-105500" or "در صورت پولبک به محدوده 105235-105500"]
         - سطح کلیدی برای تایید: [confirmation level]
         - سطح ریسک: [متوسط/بالا/پایین]
 
@@ -395,7 +395,9 @@ def generate_summarized_analysis(
         - For trend direction, use exactly one of: صعودی, نزولی, خنثی
         - Extract current price: Look for "Current Market Price (Live)" section first. If it exists, use the "Current Price" value. If not, use the Close price from "Latest OHLCV Data" section
         - Use identified Support/Resistance levels from the data
-        - Base EMA recommendations on the actual EMA values provided
+        - Base recommendations on ALL available indicators (EMAs, RSI, MFI, ADX, DI+/DI-, Bollinger Bands) but keep mentions brief since this is a summarized report
+        - You may briefly reference other indicators (RSI overbought/oversold, Bollinger Band position, ADX trend strength) when relevant for trend assessment or entry suggestions, but focus primarily on EMAs and Support/Resistance levels
+        - For entry points: ALWAYS provide specific price ranges. Use EMA levels, support levels, or create reasonable pullback zones. Examples: "محدوده 105000-105500", "در صورت پولبک به محدوده EMA_21 (105235-105500)", "نزدیک سطح حمایت 104800-105200"
         - Keep recommendations practical and specific
         - Output ONLY the formatted analysis - no extra text
         """
