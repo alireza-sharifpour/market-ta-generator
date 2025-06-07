@@ -387,15 +387,47 @@ def identify_support_resistance(
             :top_n_levels
         ]
 
-        # Step 4: Return final results (price levels only)
+        # Step 4: Get current price for dynamic reclassification
+        current_price = df["Close"].iloc[-1]  # Latest closing price
+        
+        # Step 5: Dynamic reclassification based on current price
+        # Combine all levels first
+        all_resistance_levels = [round(level[0], 4) for level in resistance_levels]
+        all_support_levels = [round(level[0], 4) for level in support_levels]
+        
+        # Reclassify based on current price:
+        # - Original resistance levels below current price become support
+        # - Original support levels above current price become resistance
+        final_resistance = []
+        final_support = []
+        
+        # Process original resistance levels
+        for level in all_resistance_levels:
+            if level > current_price:
+                final_resistance.append(level)  # Still resistance (above price)
+            else:
+                final_support.append(level)    # Now support (price broke above)
+        
+        # Process original support levels  
+        for level in all_support_levels:
+            if level < current_price:
+                final_support.append(level)    # Still support (below price)
+            else:
+                final_resistance.append(level) # Now resistance (price broke below)
+        
+        # Remove duplicates and sort
+        final_resistance = sorted(list(set(final_resistance)))
+        final_support = sorted(list(set(final_support)), reverse=True)
+        
         result = {
-            "resistance": [round(level[0], 4) for level in resistance_levels],
-            "support": [round(level[0], 4) for level in support_levels],
+            "resistance": final_resistance,
+            "support": final_support,
         }
 
         logger.info(
-            f"Identified {len(result['resistance'])} resistance and {len(result['support'])} support levels"
+            f"Identified {len(result['resistance'])} resistance and {len(result['support'])} support levels after dynamic reclassification"
         )
+        logger.info(f"Current price: {current_price:.4f}")
         return result
 
     except Exception as e:
