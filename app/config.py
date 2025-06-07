@@ -17,7 +17,7 @@ AVALAI_API_BASE_URL = "https://api.avalai.ir/v1"
 
 # Default parameters for OHLCV data fetching
 DEFAULT_TIMEFRAME = "day1"
-DEFAULT_SIZE = 60
+DEFAULT_SIZE = 200
 
 # Technical Indicators Configuration
 # Default periods/settings for technical indicators
