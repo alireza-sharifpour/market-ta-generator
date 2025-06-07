@@ -82,7 +82,7 @@ Analyzes a cryptocurrency trading pair using historical market data.
 ```json
 {
   "status": "success",
-  "analysis": "Generated detailed technical analysis text...",
+  "analysis": "تحلیل کامل به زبان فارسی...",
   "analysis_summarized": "خلاصه تحلیل به زبان فارسی...",
   "message": null,
   "chart_image_base64": "data:image/png;base64,iVBORw0KGgoAAAANSUh..."
@@ -91,13 +91,13 @@ Analyzes a cryptocurrency trading pair using historical market data.
 
 **Response Fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| status | string | Always "success" for successful requests |
-| analysis | string | Detailed technical analysis in English |
-| analysis_summarized | string | Short summarized analysis in Persian |
-| message | null | Always null for successful responses |
-| chart_image_base64 | string | Base64 encoded PNG chart image with technical indicators and support/resistance levels |
+| Field               | Type   | Description                                                                            |
+| ------------------- | ------ | -------------------------------------------------------------------------------------- |
+| status              | string | Always "success" for successful requests                                               |
+| analysis            | string | Detailed technical analysis in English                                                 |
+| analysis_summarized | string | Short summarized analysis in Persian                                                   |
+| message             | null   | Always null for successful responses                                                   |
+| chart_image_base64  | string | Base64 encoded PNG chart image with technical indicators and support/resistance levels |
 
 **Error Response (400, 403, 404, 500):**
 
@@ -113,13 +113,13 @@ Analyzes a cryptocurrency trading pair using historical market data.
 
 ## Error Codes
 
-| HTTP Status | Description           | Possible Causes                                     |
-| ----------- | --------------------- | --------------------------------------------------- |
+| HTTP Status | Description           | Possible Causes                                                       |
+| ----------- | --------------------- | --------------------------------------------------------------------- |
 | 400         | Bad Request           | Invalid input payload, malformed request, limit out of range (1-2000) |
-| 403         | Forbidden             | IP address not whitelisted (when IP whitelist is enabled) |
-| 404         | Not Found             | Trading pair not found on LBank                     |
-| 500         | Internal Server Error | Server error, Avalai API error, processing error    |
-| 503         | Service Unavailable   | LBank API or Avalai API unavailable or rate limited |
+| 403         | Forbidden             | IP address not whitelisted (when IP whitelist is enabled)             |
+| 404         | Not Found             | Trading pair not found on LBank                                       |
+| 500         | Internal Server Error | Server error, Avalai API error, processing error                      |
+| 503         | Service Unavailable   | LBank API or Avalai API unavailable or rate limited                   |
 
 ## Example Usage
 
@@ -151,14 +151,14 @@ async function analyzeCrypto(pair, timeframe = null, limit = null) {
       // Handle successful response
       console.log("Detailed Analysis:", data.analysis);
       console.log("Summary (Persian):", data.analysis_summarized);
-      
+
       // Display chart if needed
       if (data.chart_image_base64) {
         const img = document.createElement("img");
         img.src = data.chart_image_base64;
         document.body.appendChild(img);
       }
-      
+
       return data;
     } else {
       // Handle error response
@@ -208,7 +208,7 @@ The API follows a comprehensive 7-step analysis process:
 
 ```bash
 LBANK_API_KEY="your_lbank_key"           # Optional - for authenticated requests
-LBANK_API_SECRET="your_lbank_secret"     # Optional - for authenticated requests  
+LBANK_API_SECRET="your_lbank_secret"     # Optional - for authenticated requests
 AVALAI_API_KEY="your_avalai_key"         # Required - for AI analysis (Gemini 2.5 Flash)
 WHITELIST_ENABLED="True"                 # Optional - defaults to True
 WHITELISTED_IPS="127.0.0.1,..."        # Optional - comma-separated IPs
