@@ -7,7 +7,7 @@ import pandas as pd
 import pandas_ta as ta
 from pandas import DataFrame
 
-from app.config import INDICATOR_SETTINGS  # Import settings
+from app.config import INDICATOR_SETTINGS, SR_SETTINGS  # Import settings
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -230,33 +230,77 @@ def add_technical_indicators(
         raise RuntimeError(f"Failed to calculate technical indicators: {e}")
 
 
+def get_sr_settings_for_timeframe(timeframe: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Get appropriate S/R settings based on timeframe.
+    
+    Args:
+        timeframe: Timeframe string (e.g., "hour1", "minute5", "day1")
+        
+    Returns:
+        Dictionary with S/R settings appropriate for the timeframe
+    """
+    if not timeframe:
+        return SR_SETTINGS["default"]
+    
+    # Check which category the timeframe belongs to
+    for category, settings in SR_SETTINGS.items():
+        if category == "default":
+            continue
+        if timeframe in settings.get("timeframes", []):
+            return settings
+    
+    # If timeframe not found, return default settings
+    logger.warning(f"Timeframe '{timeframe}' not found in SR_SETTINGS, using default")
+    return SR_SETTINGS["default"]
+
+
 def identify_support_resistance(
     df: DataFrame,
-    lookback_periods: int = 10,  # Reduced from 20 to be less restrictive
-    cluster_threshold_percent: float = 1.0,  # Increased from 0.5 to group more levels
-    min_touches: int = 2,  # Reduced from 2 to allow single strong levels
-    top_n_levels: int = 5,
+    timeframe: Optional[str] = None,
+    lookback_periods: Optional[int] = None,
+    cluster_threshold_percent: Optional[float] = None,
+    min_touches: Optional[int] = None,
+    top_n_levels: Optional[int] = None,
 ) -> Dict[str, List[float]]:
     """
-    Identify support and resistance levels using a simplified swing point approach.
-
+    Identify support and resistance levels using multiple detection methods.
+    
+    This enhanced version uses:
+    1. Swing point detection (traditional method)
+    2. Density-based level detection (for horizontal levels)
+    3. Timeframe-specific parameter adjustment
+    4. Improved clustering algorithms
+    
     Args:
         df: DataFrame with OHLCV data
-        lookback_periods: Window size for identifying swing points (reduced for more sensitivity)
-        cluster_threshold_percent: Percentage range for clustering nearby levels (increased)
-        min_touches: Minimum number of touches required to qualify as S/R (reduced)
-        top_n_levels: Number of top levels to return for each type
-
+        timeframe: Timeframe string for parameter optimization (e.g., "hour1", "minute5")
+        lookback_periods: Window size for swing point detection (overrides timeframe default)
+        cluster_threshold_percent: Percentage range for clustering levels (overrides timeframe default)
+        min_touches: Minimum touches required to qualify as S/R (overrides timeframe default)
+        top_n_levels: Number of top levels to return for each type (overrides timeframe default)
+        
     Returns:
         Dictionary with lists of support and resistance levels
-
+        
     Raises:
         ValueError: If input DataFrame is empty or insufficient data
     """
     if df.empty:
         logger.warning("Input DataFrame is empty. Cannot identify S/R levels.")
         raise ValueError("Input DataFrame is empty")
-
+    
+    # Get timeframe-specific settings
+    sr_settings = get_sr_settings_for_timeframe(timeframe)
+    
+    # Use provided parameters or fall back to timeframe-specific defaults
+    lookback_periods = lookback_periods or sr_settings["lookback_periods"]
+    cluster_threshold_percent = cluster_threshold_percent or sr_settings["cluster_threshold_percent"]
+    min_touches = min_touches or sr_settings["min_touches"]
+    top_n_levels = top_n_levels or sr_settings["top_n_levels"]
+    density_window = sr_settings["density_window"]
+    volatility_adjustment = sr_settings["volatility_adjustment"]
+    
     if len(df) < lookback_periods * 2:
         logger.warning(
             f"Insufficient data points ({len(df)}) for lookback period ({lookback_periods})"
@@ -264,175 +308,308 @@ def identify_support_resistance(
         raise ValueError(
             f"Insufficient data for S/R identification (need at least {lookback_periods*2} points)"
         )
-
+    
     try:
-        # Step 1: Identify swing highs and lows using a simpler approach
         logger.info(
-            f"Identifying swing points with lookback period of {lookback_periods}"
+            f"Identifying S/R levels with timeframe: {timeframe}, lookback: {lookback_periods}, "
+            f"cluster_threshold: {cluster_threshold_percent}%, min_touches: {min_touches}"
         )
+        
         df_copy = df.copy()
-
-        # Initialize lists to store potential levels
-        swing_highs = []
-        swing_lows = []
-
-        # Use a simpler approach: find local maxima/minima within smaller windows
-        # Check each point to see if it's higher/lower than surrounding points
-        window_half = lookback_periods // 2  # Use half the lookback for each side
-
-        for i in range(window_half, len(df_copy) - window_half):
-            current_high = df_copy["High"].iloc[i]
-            current_low = df_copy["Low"].iloc[i]
-
-            # Check for swing high: higher than points within window_half on both sides
-            is_swing_high = True
-            for j in range(
-                max(0, i - window_half), min(len(df_copy), i + window_half + 1)
-            ):
-                if j != i and df_copy["High"].iloc[j] >= current_high:
-                    is_swing_high = False
-                    break
-
-            if is_swing_high:
-                swing_highs.append((i, current_high))
-
-            # Check for swing low: lower than points within window_half on both sides
-            is_swing_low = True
-            for j in range(
-                max(0, i - window_half), min(len(df_copy), i + window_half + 1)
-            ):
-                if j != i and df_copy["Low"].iloc[j] <= current_low:
-                    is_swing_low = False
-                    break
-
-            if is_swing_low:
-                swing_lows.append((i, current_low))
-
+        current_price = df["Close"].iloc[-1]
+        
+        # Step 1: Swing Point Detection (Traditional Method)
+        swing_highs, swing_lows = _detect_swing_points(df_copy, lookback_periods)
+        
+        # Step 2: Density-Based Level Detection (For Horizontal Levels)
+        density_highs, density_lows = _detect_density_levels(df_copy, density_window, volatility_adjustment)
+        
+        # Step 3: Combine Detection Methods
+        all_highs = swing_highs + density_highs
+        all_lows = swing_lows + density_lows
+        
         logger.info(
-            f"Found {len(swing_highs)} swing highs and {len(swing_lows)} swing lows"
+            f"Found {len(swing_highs)} swing highs, {len(density_highs)} density highs, "
+            f"{len(swing_lows)} swing lows, {len(density_lows)} density lows"
         )
-
-        # Step 2: Cluster nearby levels
-        def cluster_price_levels(
-            levels: List[tuple], threshold_percent: float
-        ) -> List[tuple]:
-            """Cluster nearby price levels and calculate importance"""
-            if not levels:
-                return []
-
-            # Extract price values and calculate threshold
-            prices = [level[1] for level in levels]
-            avg_price = sum(prices) / len(prices)
-            threshold = avg_price * threshold_percent / 100
-
-            # Sort by price value
-            sorted_levels = sorted(levels, key=lambda x: x[1])
-            sorted_prices = [level[1] for level in sorted_levels]
-
-            # Cluster nearby levels
-            clusters = []
-            current_cluster = [sorted_levels[0]]
-
-            for i in range(1, len(sorted_levels)):
-                if abs(sorted_prices[i] - sorted_prices[i - 1]) < threshold:
-                    current_cluster.append(sorted_levels[i])
-                else:
-                    clusters.append(current_cluster)
-                    current_cluster = [sorted_levels[i]]
-
-            if current_cluster:
-                clusters.append(current_cluster)
-
-            # Calculate average price and importance for each cluster
-            cluster_levels = []
-            for cluster in clusters:
-                # Skip clusters with fewer touches than minimum
-                if len(cluster) < min_touches:
-                    continue
-
-                # Extract values from the cluster
-                positions = [level[0] for level in cluster]  # Integer positions
-                prices = [level[1] for level in cluster]  # Price values
-
-                # Calculate average price (the S/R level)
-                avg_price = sum(prices) / len(prices)
-
-                # Importance factors
-                num_touches = len(cluster)  # Number of touches
-
-                # Calculate recency score using integer positions directly
-                # Higher index = more recent
-                recency_score = sum([(pos / len(df)) for pos in positions]) / len(
-                    positions
-                )
-
-                # Combined importance score (higher is more important)
-                importance = num_touches * (1 + recency_score)
-
-                cluster_levels.append((avg_price, importance))
-
-            return cluster_levels
-
-        # Apply clustering
-        resistance_clusters = cluster_price_levels(
-            swing_highs, cluster_threshold_percent
+        
+        # Step 4: Enhanced Clustering
+        resistance_clusters = _cluster_price_levels(all_highs, cluster_threshold_percent, min_touches, df_copy)
+        support_clusters = _cluster_price_levels(all_lows, cluster_threshold_percent, min_touches, df_copy)
+        
+        # Step 5: Sort by importance and select top N levels
+        resistance_levels = sorted(resistance_clusters, key=lambda x: x[1], reverse=True)[:top_n_levels]
+        support_levels = sorted(support_clusters, key=lambda x: x[1], reverse=True)[:top_n_levels]
+        
+        # Step 6: Dynamic reclassification based on current price
+        final_resistance, final_support = _reclassify_levels(
+            resistance_levels, support_levels, current_price
         )
-        support_clusters = cluster_price_levels(swing_lows, cluster_threshold_percent)
-
-        # Step 3: Sort by importance and select top N levels
-        resistance_levels = sorted(
-            resistance_clusters, key=lambda x: x[1], reverse=True
-        )[:top_n_levels]
-        support_levels = sorted(support_clusters, key=lambda x: x[1], reverse=True)[
-            :top_n_levels
-        ]
-
-        # Step 4: Get current price for dynamic reclassification
-        current_price = df["Close"].iloc[-1]  # Latest closing price
-        
-        # Step 5: Dynamic reclassification based on current price
-        # Combine all levels first
-        all_resistance_levels = [round(level[0], 4) for level in resistance_levels]
-        all_support_levels = [round(level[0], 4) for level in support_levels]
-        
-        # Reclassify based on current price:
-        # - Original resistance levels below current price become support
-        # - Original support levels above current price become resistance
-        final_resistance = []
-        final_support = []
-        
-        # Process original resistance levels
-        for level in all_resistance_levels:
-            if level > current_price:
-                final_resistance.append(level)  # Still resistance (above price)
-            else:
-                final_support.append(level)    # Now support (price broke above)
-        
-        # Process original support levels  
-        for level in all_support_levels:
-            if level < current_price:
-                final_support.append(level)    # Still support (below price)
-            else:
-                final_resistance.append(level) # Now resistance (price broke below)
-        
-        # Remove duplicates and sort
-        final_resistance = sorted(list(set(final_resistance)))
-        final_support = sorted(list(set(final_support)), reverse=True)
         
         result = {
             "resistance": final_resistance,
             "support": final_support,
         }
-
+        
         logger.info(
-            f"Identified {len(result['resistance'])} resistance and {len(result['support'])} support levels after dynamic reclassification"
+            f"Identified {len(result['resistance'])} resistance and {len(result['support'])} support levels "
+            f"after dynamic reclassification (current price: {current_price:.4f})"
         )
-        logger.info(f"Current price: {current_price:.4f}")
+        
         return result
-
+        
     except Exception as e:
         logger.error(f"Error identifying support/resistance levels: {e}", exc_info=True)
         raise RuntimeError(f"Failed to identify support/resistance levels: {e}")
+
+
+def _detect_swing_points(df: DataFrame, lookback_periods: int) -> tuple[List[tuple], List[tuple]]:
+    """
+    Detect swing highs and lows using traditional swing point method.
+    
+    Args:
+        df: DataFrame with OHLCV data
+        lookback_periods: Window size for swing point detection
+        
+    Returns:
+        Tuple of (swing_highs, swing_lows) where each is a list of (index, price) tuples
+    """
+    swing_highs = []
+    swing_lows = []
+    window_half = lookback_periods // 2
+    
+    for i in range(window_half, len(df) - window_half):
+        current_high = df["High"].iloc[i]
+        current_low = df["Low"].iloc[i]
+        
+        # Check for swing high
+        is_swing_high = True
+        for j in range(max(0, i - window_half), min(len(df), i + window_half + 1)):
+            if j != i and df["High"].iloc[j] >= current_high:
+                is_swing_high = False
+                break
+        
+        if is_swing_high:
+            swing_highs.append((i, current_high))
+        
+        # Check for swing low
+        is_swing_low = True
+        for j in range(max(0, i - window_half), min(len(df), i + window_half + 1)):
+            if j != i and df["Low"].iloc[j] <= current_low:
+                is_swing_low = False
+                break
+        
+        if is_swing_low:
+            swing_lows.append((i, current_low))
+    
+    return swing_highs, swing_lows
+
+
+def _detect_density_levels(df: DataFrame, density_window: int, volatility_adjustment: bool) -> tuple[List[tuple], List[tuple]]:
+    """
+    Detect support/resistance levels using price density analysis.
+    This method finds horizontal levels where price spent significant time.
+    
+    Args:
+        df: DataFrame with OHLCV data
+        density_window: Window size for density calculation
+        volatility_adjustment: Whether to adjust thresholds based on volatility
+        
+    Returns:
+        Tuple of (density_highs, density_lows) where each is a list of (index, price) tuples
+    """
+    density_highs = []
+    density_lows = []
+    
+    if len(df) < density_window * 2:
+        return density_highs, density_lows
+    
+    # Calculate price ranges for density analysis
+    price_range = df["High"].max() - df["Low"].min()
+    
+    # Adjust density threshold based on volatility if enabled
+    if volatility_adjustment:
+        recent_volatility = df["Close"].pct_change().iloc[-20:].std()
+        density_threshold = price_range * (0.01 + recent_volatility * 0.5)  # Adaptive threshold
+    else:
+        density_threshold = price_range * 0.015  # Fixed 1.5% threshold
+    
+    # Create price bins for density analysis
+    high_prices = df["High"].values
+    low_prices = df["Low"].values
+    
+    # Find areas with high price density (multiple touches)
+    for i in range(density_window, len(df) - density_window):
+        current_high = df["High"].iloc[i]
+        current_low = df["Low"].iloc[i]
+        
+        # Count nearby price touches for highs
+        high_touches = 0
+        for j in range(max(0, i - density_window), min(len(df), i + density_window + 1)):
+            if abs(df["High"].iloc[j] - current_high) <= density_threshold:
+                high_touches += 1
+        
+        # Count nearby price touches for lows
+        low_touches = 0
+        for j in range(max(0, i - density_window), min(len(df), i + density_window + 1)):
+            if abs(df["Low"].iloc[j] - current_low) <= density_threshold:
+                low_touches += 1
+        
+        # If we have enough touches, consider it a significant level
+        if high_touches >= 3:  # Minimum 3 touches for density level
+            density_highs.append((i, current_high))
+        
+        if low_touches >= 3:  # Minimum 3 touches for density level
+            density_lows.append((i, current_low))
+    
+    # Remove duplicates by clustering very close levels
+    density_highs = _remove_duplicate_levels(density_highs, density_threshold)
+    density_lows = _remove_duplicate_levels(density_lows, density_threshold)
+    
+    return density_highs, density_lows
+
+
+def _remove_duplicate_levels(levels: List[tuple], threshold: float) -> List[tuple]:
+    """
+    Remove duplicate levels that are very close to each other.
+    
+    Args:
+        levels: List of (index, price) tuples
+        threshold: Price threshold for considering levels as duplicates
+        
+    Returns:
+        List of unique levels
+    """
+    if not levels:
+        return []
+    
+    # Sort by price
+    sorted_levels = sorted(levels, key=lambda x: x[1])
+    unique_levels = [sorted_levels[0]]
+    
+    for level in sorted_levels[1:]:
+        # If this level is far enough from the last unique level, keep it
+        if abs(level[1] - unique_levels[-1][1]) > threshold:
+            unique_levels.append(level)
+    
+    return unique_levels
+
+
+def _cluster_price_levels(levels: List[tuple], threshold_percent: float, min_touches: int, df: DataFrame) -> List[tuple]:
+    """
+    Enhanced clustering of price levels with importance calculation.
+    
+    Args:
+        levels: List of (index, price) tuples
+        threshold_percent: Percentage range for clustering nearby levels
+        min_touches: Minimum number of touches required to qualify as S/R
+        df: DataFrame for calculating importance metrics
+        
+    Returns:
+        List of (price, importance) tuples
+    """
+    if not levels:
+        return []
+    
+    # Extract price values and calculate threshold
+    prices = [level[1] for level in levels]
+    avg_price = sum(prices) / len(prices)
+    threshold = avg_price * threshold_percent / 100
+    
+    # Sort by price value
+    sorted_levels = sorted(levels, key=lambda x: x[1])
+    
+    # Cluster nearby levels
+    clusters = []
+    current_cluster = [sorted_levels[0]]
+    
+    for i in range(1, len(sorted_levels)):
+        if abs(sorted_levels[i][1] - sorted_levels[i-1][1]) < threshold:
+            current_cluster.append(sorted_levels[i])
+        else:
+            clusters.append(current_cluster)
+            current_cluster = [sorted_levels[i]]
+    
+    if current_cluster:
+        clusters.append(current_cluster)
+    
+    # Calculate average price and importance for each cluster
+    cluster_levels = []
+    for cluster in clusters:
+        if len(cluster) < min_touches:
+            continue
+        
+        # Extract values from the cluster
+        positions = [level[0] for level in cluster]
+        prices = [level[1] for level in cluster]
+        
+        # Calculate average price (the S/R level)
+        avg_price = sum(prices) / len(prices)
+        
+        # Enhanced importance calculation
+        num_touches = len(cluster)
+        
+        # Recency score (higher index = more recent)
+        recency_score = sum([pos / len(df) for pos in positions]) / len(positions)
+        
+        # Volume-weighted importance (if we have volume data)
+        volume_weight = 1.0
+        try:
+            # Get volume data for the positions in this cluster
+            cluster_volumes = [df["Volume"].iloc[pos] for pos in positions]
+            avg_volume = sum(cluster_volumes) / len(cluster_volumes)
+            overall_avg_volume = df["Volume"].mean()
+            volume_weight = min(2.0, avg_volume / overall_avg_volume)  # Cap at 2x
+        except:
+            pass  # If volume calculation fails, use default weight
+        
+        # Combined importance score
+        importance = num_touches * (1 + recency_score) * volume_weight
+        
+        cluster_levels.append((avg_price, importance))
+    
+    return cluster_levels
+
+
+def _reclassify_levels(resistance_levels: List[tuple], support_levels: List[tuple], current_price: float) -> tuple[List[float], List[float]]:
+    """
+    Dynamically reclassify support/resistance levels based on current price.
+    
+    Args:
+        resistance_levels: List of (price, importance) tuples for resistance
+        support_levels: List of (price, importance) tuples for support
+        current_price: Current market price
+        
+    Returns:
+        Tuple of (final_resistance, final_support) lists
+    """
+    # Extract price values
+    all_resistance_levels = [round(level[0], 4) for level in resistance_levels]
+    all_support_levels = [round(level[0], 4) for level in support_levels]
+    
+    # Reclassify based on current price
+    final_resistance = []
+    final_support = []
+    
+    # Process original resistance levels
+    for level in all_resistance_levels:
+        if level > current_price:
+            final_resistance.append(level)  # Still resistance (above price)
+        else:
+            final_support.append(level)     # Now support (price broke above)
+    
+    # Process original support levels
+    for level in all_support_levels:
+        if level < current_price:
+            final_support.append(level)     # Still support (below price)
+        else:
+            final_resistance.append(level)  # Now resistance (price broke below)
+    
+    # Remove duplicates and sort
+    final_resistance = sorted(list(set(final_resistance)))
+    final_support = sorted(list(set(final_support)), reverse=True)
+    
+    return final_resistance, final_support
 
 
 def prepare_llm_input_phase2(

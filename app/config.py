@@ -32,6 +32,50 @@ INDICATOR_SETTINGS = {
     "mfi_period": 14,
 }
 
+# Support/Resistance Detection Configuration
+# Timeframe-specific parameters for support/resistance detection
+SR_SETTINGS = {
+    # High-frequency timeframes (1m, 5m, 15m, 30m)
+    "high_frequency": {
+        "timeframes": ["minute1", "minute5", "minute15", "minute30"],
+        "lookback_periods": 5,
+        "cluster_threshold_percent": 0.3,
+        "min_touches": 2,
+        "top_n_levels": 6,
+        "density_window": 3,
+        "volatility_adjustment": True,
+    },
+    # Medium-frequency timeframes (1h, 4h, 8h, 12h)
+    "medium_frequency": {
+        "timeframes": ["hour1", "hour4", "hour8", "hour12"],
+        "lookback_periods": 8,
+        "cluster_threshold_percent": 0.5,
+        "min_touches": 2,
+        "top_n_levels": 5,
+        "density_window": 5,
+        "volatility_adjustment": True,
+    },
+    # Low-frequency timeframes (1d, 1w, 1M)
+    "low_frequency": {
+        "timeframes": ["day1", "week1", "month1"],
+        "lookback_periods": 12,
+        "cluster_threshold_percent": 1.0,
+        "min_touches": 2,
+        "top_n_levels": 5,
+        "density_window": 7,
+        "volatility_adjustment": False,
+    },
+    # Default settings when timeframe is not specified
+    "default": {
+        "lookback_periods": 10,
+        "cluster_threshold_percent": 1.0,
+        "min_touches": 2,
+        "top_n_levels": 5,
+        "density_window": 5,
+        "volatility_adjustment": True,
+    },
+}
+
 # OpenAI Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = "gemini-2.5-flash-preview-04-17"
