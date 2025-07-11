@@ -110,10 +110,11 @@ def run_phase2_analysis(
         # Step 4: Identify Support/Resistance levels
         logger.info("Identifying S/R levels")
         try:
-            # Using default parameters for identify_support_resistance
-            sr_levels = identify_support_resistance(df_with_indicators)
+            # Pass timeframe for optimal parameter selection
+            sr_levels = identify_support_resistance(df_with_indicators, timeframe=timeframe_to_use)
             logger.info(
-                f"Successfully identified S/R levels: Support {sr_levels.get('support')}, Resistance {sr_levels.get('resistance')}"
+                f"Successfully identified S/R levels with timeframe {timeframe_to_use}: "
+                f"Support {sr_levels.get('support')}, Resistance {sr_levels.get('resistance')}"
             )
         except (ValueError, RuntimeError) as e:
             error_msg = f"Failed to identify S/R levels: {str(e)}"
