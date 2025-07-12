@@ -43,12 +43,13 @@ jobs:
 
               # Stop all running containers gracefully
               docker compose down
+              docker stop market-ta-generator || true
+              docker rm market-ta-generator || true
 
-              # Rebuild Docker image without using cache to ensure all changes are included
-              # --no-cache prevents Docker from using cached layers that might contain old code
+              # Rebuild Docker image without using cache
               docker compose build --no-cache
 
-              # Start services in detached mode (background)
+              # Start services in detached mode
               docker compose up -d
             else
               echo ">>> No application changes detected, performing restart only..."
