@@ -22,32 +22,45 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Navigate to the project directory on the server
+            # Navigate to the deployment directory on the server
             cd ${{ secrets.DEPLOY_PATH }}
 
-            # Pull the latest changes from the main branch
-            echo ">>> Pulling latest code..."
-            git checkout main # Ensure we are on the main branch
+            # Ensure we're on the main branch and get latest changes
+            echo ">>> Checking out main branch and pulling latest changes..."
+            git checkout main
             git pull origin main
 
-            # Ensure the .env file exists (manual step, should already be there)
+            # Verify .env file exists (should be manually placed on server)
             if [ ! -f .env ]; then
-              echo "ERROR: .env file not found on server at ${{ secrets.DEPLOY_PATH }}"
+              echo "ERROR: .env file not found at ${{ secrets.DEPLOY_PATH }}/.env"
               exit 1
             fi
 
-            # Stop existing containers (optional, for cleaner start)
-            echo ">>> Stopping existing services..."
-            docker compose down
+            # Check if any application code or dependencies changed in the last commit
+            # This includes: app/ directory, requirements.txt, or Dockerfile
+            if git diff HEAD~1 --name-only | grep -E "^app/|requirements.txt|Dockerfile"; then
+              echo ">>> Application changes detected, performing full rebuild..."
 
-            # Build and start services using Docker Compose
-            # --build will rebuild the image only if Dockerfile or related files changed
-            # -d runs containers in the background
-            echo ">>> Building and starting services..."
-            docker compose up --build -d
+              # Stop all running containers gracefully
+              docker compose down
 
-            # Optional: Clean up old unused Docker images to save space
-            echo ">>> Pruning old Docker images..."
+              # Rebuild Docker image without using cache to ensure all changes are included
+              # --no-cache prevents Docker from using cached layers that might contain old code
+              docker compose build --no-cache
+
+              # Start services in detached mode (background)
+              docker compose up -d
+            else
+              echo ">>> No application changes detected, performing restart only..."
+
+              # If only config or non-code files changed, just restart containers
+              # This is much faster than a full rebuild
+              docker compose restart
+            fi
+
+            # Clean up unused Docker images to save disk space
+            # -f flag forces removal without confirmation
+            echo ">>> Cleaning up unused Docker images..."
             docker image prune -f
 
-            echo ">>> Deployment successful!"
+            echo ">>> Deployment completed successfully!"
