@@ -458,10 +458,7 @@ def generate_summarized_analysis(
         # Generate the analysis using the LLM
         analysis = llm_client.generate_text(prompt)
 
-        # Apply MarkdownV2 escaping to ensure Telegram compatibility
-        escaped_analysis = escape_markdownv2(analysis)
-
-        return escaped_analysis
+        return analysis
 
     except Exception as e:
         logger.error(f"Error generating summarized analysis for {pair}: {str(e)}")
@@ -615,10 +612,7 @@ def generate_detailed_analysis(
         # Generate the analysis using the LLM
         analysis = llm_client.generate_text(prompt)
 
-        # Apply MarkdownV2 escaping to ensure Telegram compatibility
-        escaped_analysis = escape_markdownv2(analysis)
-
-        return escaped_analysis
+        return analysis
 
     except Exception as e:
         logger.error(f"Error generating detailed analysis for {pair}: {str(e)}")
