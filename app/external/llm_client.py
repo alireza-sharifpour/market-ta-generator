@@ -168,7 +168,7 @@ class OpenAIClient(BaseLLMClient):
 
 # Factory function to get the configured LLM client
 def get_llm_client(
-    provider: str = "openai", config: Optional[Dict[str, Any]] = None
+    provider: str = "openai", config: Optional[Dict] = None
 ) -> BaseLLMClient:
     """
     Factory function to get the configured LLM client.
