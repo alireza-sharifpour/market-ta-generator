@@ -6,7 +6,7 @@ This implementation uses OpenAI by default, but is designed to be easily swappab
 import abc
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 # Import error types directly from openai package
 from openai import (
@@ -444,45 +444,32 @@ def generate_detailed_analysis(
         Exception: If there's an error in the analysis generation.
     """
     try:
-        # Get human-readable timeframe description
-        timeframe_description = ""
+        # Get Persian timeframe phrase
         persian_timeframe_phrase = ""
         if timeframe:
             if timeframe == "minute1":
-                timeframe_description = "1-minute"
                 persian_timeframe_phrase = "۱ دقیقه‌ای"
             elif timeframe == "minute5":
-                timeframe_description = "5-minute"
                 persian_timeframe_phrase = "۵ دقیقه‌ای"
             elif timeframe == "minute15":
-                timeframe_description = "15-minute"
                 persian_timeframe_phrase = "۱۵ دقیقه‌ای"
             elif timeframe == "minute30":
-                timeframe_description = "30-minute"
                 persian_timeframe_phrase = "۳۰ دقیقه‌ای"
             elif timeframe == "hour1":
-                timeframe_description = "1-hour"
                 persian_timeframe_phrase = "۱ ساعته"
             elif timeframe == "hour4":
-                timeframe_description = "4-hour"
                 persian_timeframe_phrase = "۴ ساعته"
             elif timeframe == "hour8":
-                timeframe_description = "8-hour"
                 persian_timeframe_phrase = "۸ ساعته"
             elif timeframe == "hour12":
-                timeframe_description = "12-hour"
                 persian_timeframe_phrase = "۱۲ ساعته"
             elif timeframe == "day1":
-                timeframe_description = "daily"
                 persian_timeframe_phrase = "روزانه"
             elif timeframe == "week1":
-                timeframe_description = "weekly"
                 persian_timeframe_phrase = "هفتگی"
             elif timeframe == "month1":
-                timeframe_description = "monthly"
                 persian_timeframe_phrase = "ماهانه"
             else:
-                timeframe_description = timeframe
                 persian_timeframe_phrase = timeframe  # Fallback
 
         prompt = f"""
@@ -513,13 +500,13 @@ def generate_detailed_analysis(
 
         📊 تحلیل کامل‌تر:
 
-        >۱. خلاصه عمومی و وضعیت فعلی:
+        >۱\. خلاصه عمومی و وضعیت فعلی\:
         - در آخرین کندل [timeframe] (تاریخ [date])، قیمت {pair} با [change_percentage] بسته شده است.
         - قیمت فعلی ([current_price]) در محدوده [position description relative to range] قرار دارد.
         - حجم معاملات در آخرین دوره [volume] بوده است.
         - نوسانات اخیر در سطح [volatility_percentage] قرار دارد.
 
-        >۲. تحلیل تکنیکال جامع:
+        >۲\. تحلیل تکنیکال جامع\:
         - میانگین‌های متحرک (EMAs):
         - میانگین‌های متحرک کوتاه‌مدت (EMA_9 در [value] و EMA_21 در [value]) [trend_description] و [position_relative_to_price].
         - میانگین متحرک بلندمدت (EMA_50 در [value]) [trend_description] و [position_relative_to_price].
@@ -538,20 +525,20 @@ def generate_detailed_analysis(
         - باند بالایی در فاصله [percentage] بالای قیمت و باند پایینی در فاصله [percentage] پایین‌تر از قیمت قرار دارد.
         - پهنای باند [description of volatility].
 
-        >۳. سطوح حمایت و مقاومت کلیدی:
+        >۳\. سطوح حمایت و مقاومت کلیدی\:
         - بر اساس داده‌های ارائه شده، [resistance levels description].
         - سطوح حمایت مهم در پایین‌تر از قیمت فعلی شناسایی شده‌اند:
           - حمایت اول: در حدود قیمت [level] ([percentage] پایین‌تر از قیمت فعلی).
           - حمایت دوم: در حدود قیمت [level] ([percentage] پایین‌تر از قیمت فعلی).
         - قیمت فعلی [distance description from support/resistance levels].
 
-        >۴. سناریوهای احتمالی و پیشنهاد معاملاتی:
+        >۴\. سناریوهای احتمالی و پیشنهاد معاملاتی\:
         - با توجه به [indicator summary], سناریوی اصلی [bullish/bearish/neutral] است.
         - سناریوی صعودی: [bullish scenario description].
         - سناریوی نزولی: [bearish scenario description].
         - پیشنهاد معاملاتی عمومی: [trading recommendation based on analysis].
 
-        >۵. ارزیابی ریسک:
+        >۵\. ارزیابی ریسک\:
         - ریسک اصلی در این تحلیل، [main risk factor].
         - شکست قاطع سطح [key level] می‌تواند [impact description].
         - انتشار اخبار مهم اقتصادی یا تغییرات ناگهانی در احساسات بازار کریپتو می‌تواند به سرعت تحلیل تکنیکال را تحت تاثیر قرار دهد.
