@@ -24,47 +24,6 @@ from app.config import AVALAI_API_BASE_URL, AVALAI_API_KEY, OPENAI_MODEL
 logger = logging.getLogger(__name__)
 
 
-def escape_markdownv2(text: str) -> str:
-    """
-    Escape MarkdownV2 special characters for Telegram.
-
-    In MarkdownV2, these characters are special and must be escaped with backslash:
-    _*[]()~`>#+-=|{}.!
-
-    Args:
-        text: The text to escape
-
-    Returns:
-        Text with special characters escaped for MarkdownV2
-    """
-    # Characters that need escaping in MarkdownV2
-    special_chars = [
-        "_",
-        "*",
-        "[",
-        "]",
-        "(",
-        ")",
-        "~",
-        "`",
-        ">",
-        "#",
-        "+",
-        "-",
-        "=",
-        "|",
-        "{",
-        "}",
-        ".",
-        "!",
-    ]
-
-    for char in special_chars:
-        text = text.replace(char, f"\\{char}")
-
-    return text
-
-
 class BaseLLMClient(abc.ABC):
     """Abstract base class for LLM clients to enable easy provider switching."""
 
@@ -424,8 +383,8 @@ def generate_summarized_analysis(
 
         ▫️وضعیت کلی:
         - قیمت لحظه‌ای: [current_price from "Current Market Price (Live)" section if available, otherwise use latest Close price]
-        - روند بلندمدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
-        - روند کوتاه‌مدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - روند بلندمدت \-\-\> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - روند کوتاه‌مدت \-\-\> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
         - حمایت مهم بعدی: [support_level]
         - مقاومت مهم بعدی: [resistance_level]
 
