@@ -78,7 +78,7 @@ SR_SETTINGS = {
 
 # OpenAI Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gemini-2.5-flash-preview-04-17"
+OPENAI_MODEL = "gemini-2.5-flash"
 
 # IP Whitelist Configuration
 # Default values provided, but can be overridden with environment variables
