@@ -24,9 +24,37 @@ from app.config import AVALAI_API_BASE_URL, AVALAI_API_KEY, OPENAI_MODEL
 logger = logging.getLogger(__name__)
 
 
+def unescape_markdownv2(text: str) -> str:
+    """
+    Remove existing MarkdownV2 escape sequences to prevent double escaping.
+    
+    Args:
+        text: The text that may contain existing escape sequences
+        
+    Returns:
+        Text with escape sequences removed
+    """
+    import re
+    
+    # Remove multiple backslashes followed by special characters
+    # This handles patterns like \\\\\\- or \\\\\\. or \\\\\\_
+    special_chars = ["_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!"]
+    
+    for char in special_chars:
+        # Remove multiple backslashes before the character (e.g., \\\\\\- -> -)
+        pattern = r'\\+' + re.escape(char)
+        text = re.sub(pattern, char, text)
+    
+    # Also remove standalone multiple backslashes
+    text = re.sub(r'\\+', '', text)
+    
+    return text
+
+
 def escape_markdownv2(text: str) -> str:
     """
     Escape MarkdownV2 special characters for Telegram.
+    First removes any existing escape sequences to prevent double escaping.
 
     In MarkdownV2, these characters are special and must be escaped with backslash:
     _*[]()~`>#+-=|{}.!
@@ -37,6 +65,9 @@ def escape_markdownv2(text: str) -> str:
     Returns:
         Text with special characters escaped for MarkdownV2
     """
+    # First remove any existing escape sequences
+    text = unescape_markdownv2(text)
+    
     # Characters that need escaping in MarkdownV2
     special_chars = [
         "\\",  # Backslash must be escaped first to avoid double escaping
