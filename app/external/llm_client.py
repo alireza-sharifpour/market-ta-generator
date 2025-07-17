@@ -24,6 +24,48 @@ from app.config import AVALAI_API_BASE_URL, AVALAI_API_KEY, OPENAI_MODEL
 logger = logging.getLogger(__name__)
 
 
+def escape_markdownv2(text: str) -> str:
+    """
+    Escape MarkdownV2 special characters for Telegram.
+
+    In MarkdownV2, these characters are special and must be escaped with backslash:
+    _*[]()~`>#+-=|{}.!
+
+    Args:
+        text: The text to escape
+
+    Returns:
+        Text with special characters escaped for MarkdownV2
+    """
+    # Characters that need escaping in MarkdownV2
+    special_chars = [
+        "\\",  # Backslash must be escaped first to avoid double escaping
+        "_",
+        "*",
+        "[",
+        "]",
+        "(",
+        ")",
+        "~",
+        "`",
+        ">",
+        "#",
+        "+",
+        "-",
+        "=",
+        "|",
+        "{",
+        "}",
+        ".",
+        "!",
+    ]
+
+    for char in special_chars:
+        text = text.replace(char, f"\\{char}")
+
+    return text
+
+
 class BaseLLMClient(abc.ABC):
     """Abstract base class for LLM clients to enable easy provider switching."""
 
@@ -298,7 +340,10 @@ def generate_basic_analysis(
         # Generate the analysis using the LLM
         analysis = llm_client.generate_text(prompt)
 
-        return analysis
+        # Apply MarkdownV2 escaping to ensure Telegram compatibility
+        escaped_analysis = escape_markdownv2(analysis)
+
+        return escaped_analysis
 
     except Exception as e:
         logger.error(f"Error generating analysis for {pair}: {str(e)}")
@@ -372,8 +417,6 @@ def generate_summarized_analysis(
              * Italic text: Use __text__ for italic formatting
              * Monospace/code: Use `text` for inline code
              * Strikethrough: Use ~~text~~ for strikethrough
-             * CRITICAL: ALL special characters _*[]()~`>#+-=|{{}}. ! MUST be escaped with backslash when used as literal text
-             * Example: Write periods as \\., parentheses as \\( \\), plus signs as \\+, minus signs as \\-
              * Lists are NOT supported in Telegram MarkdownV2
              * Use bullet points with ▫️ or - symbols instead
         3. Keep it SHORT - maximum 10-12 lines
@@ -417,7 +460,10 @@ def generate_summarized_analysis(
         # Generate the analysis using the LLM
         analysis = llm_client.generate_text(prompt)
 
-        return analysis
+        # Apply MarkdownV2 escaping to ensure Telegram compatibility
+        escaped_analysis = escape_markdownv2(analysis)
+
+        return escaped_analysis
 
     except Exception as e:
         logger.error(f"Error generating summarized analysis for {pair}: {str(e)}")
@@ -492,8 +538,6 @@ def generate_detailed_analysis(
              * Monospace/code: Use `text` for inline code
              * Strikethrough: Use ~~text~~ for strikethrough
              * Quote text: Use >text at the beginning of a line for quotes
-             * CRITICAL: ALL special characters _*[]()~`>#+-=|{{}}. ! MUST be escaped with backslash when used as literal text
-             * Example: Write periods as \\., parentheses as \\( \\), plus signs as \\+, minus signs as \\-
              * Lists are NOT supported in Telegram MarkdownV2
              * Use bullet points with ▫️ or - symbols instead
         3. Follow this EXACT structure:
@@ -558,7 +602,10 @@ def generate_detailed_analysis(
         # Generate the analysis using the LLM
         analysis = llm_client.generate_text(prompt)
 
-        return analysis
+        # Apply MarkdownV2 escaping to ensure Telegram compatibility
+        escaped_analysis = escape_markdownv2(analysis)
+
+        return escaped_analysis
 
     except Exception as e:
         logger.error(f"Error generating detailed analysis for {pair}: {str(e)}")
