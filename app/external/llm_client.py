@@ -296,7 +296,8 @@ def generate_basic_analysis(
         **Output Requirements:**
         1.  **Language:** MUST be entirely in **Persian (Farsi)**.
         2.  **Formatting:** Use **Telegram Markdown** (`**bold**`, `- ` bullets).
-        3.  **Structure:**
+        3.  **IMPORTANT:** Do NOT escape any characters manually - this will be handled automatically.
+        4.  **Structure:**
             * **Title:** Start immediately with the Persian title, strictly following this structure: `**تحلیل {pair} - تایم فریم [PERSIAN_TIMEFRAME_PHRASE]**`.
                 * Convert the Input Timeframe (`{timeframe_description}`) into the `[PERSIAN_TIMEFRAME_PHRASE]` using natural Persian TA phrasing. **Examples:**
                     * Input `daily` -> Use `روزانه` -> Full Title: `**تحلیل {pair} - تایم فریم روزانه**`
@@ -419,6 +420,7 @@ def generate_summarized_analysis(
              * Strikethrough: Use ~~text~~ for strikethrough
              * Lists are NOT supported in Telegram MarkdownV2
              * Use bullet points with ▫️ or - symbols instead
+           - IMPORTANT: Do NOT escape any characters manually - this will be handled automatically
         3. Keep it SHORT - maximum 10-12 lines
         4. Follow this EXACT structure:
 
@@ -426,8 +428,8 @@ def generate_summarized_analysis(
 
         ▫️وضعیت کلی:
         - قیمت لحظه‌ای: [current_price from "Current Market Price (Live)" section if available, otherwise use latest Close price]
-        - روند بلندمدت \-\-\> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
-        - روند کوتاه‌مدت \-\-\> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - روند بلندمدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - روند کوتاه‌مدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
         - حمایت مهم بعدی: [support_level]
         - مقاومت مهم بعدی: [resistance_level]
 
@@ -540,17 +542,18 @@ def generate_detailed_analysis(
              * Quote text: Use >text at the beginning of a line for quotes
              * Lists are NOT supported in Telegram MarkdownV2
              * Use bullet points with ▫️ or - symbols instead
+           - IMPORTANT: Do NOT escape any characters manually - this will be handled automatically
         3. Follow this EXACT structure:
 
         📊 تحلیل کامل‌تر:
 
-        >۱\. خلاصه عمومی و وضعیت فعلی\:
+        >۱. خلاصه عمومی و وضعیت فعلی:
         - در آخرین کندل [timeframe] (تاریخ [date])، قیمت {pair} با [change_percentage] بسته شده است.
         - قیمت فعلی ([current_price]) در محدوده [position description relative to range] قرار دارد.
         - حجم معاملات در آخرین دوره [volume] بوده است.
         - نوسانات اخیر در سطح [volatility_percentage] قرار دارد.
 
-        >۲\. تحلیل تکنیکال جامع\:
+        >۲. تحلیل تکنیکال جامع:
         - میانگین‌های متحرک (EMAs):
         - میانگین‌های متحرک کوتاه‌مدت (EMA_9 در [value] و EMA_21 در [value]) [trend_description] و [position_relative_to_price].
         - میانگین متحرک بلندمدت (EMA_50 در [value]) [trend_description] و [position_relative_to_price].
@@ -569,20 +572,20 @@ def generate_detailed_analysis(
         - باند بالایی در فاصله [percentage] بالای قیمت و باند پایینی در فاصله [percentage] پایین‌تر از قیمت قرار دارد.
         - پهنای باند [description of volatility].
 
-        >۳\. سطوح حمایت و مقاومت کلیدی\:
+        >۳. سطوح حمایت و مقاومت کلیدی:
         - بر اساس داده‌های ارائه شده، [resistance levels description].
         - سطوح حمایت مهم در پایین‌تر از قیمت فعلی شناسایی شده‌اند:
           - حمایت اول: در حدود قیمت [level] ([percentage] پایین‌تر از قیمت فعلی).
           - حمایت دوم: در حدود قیمت [level] ([percentage] پایین‌تر از قیمت فعلی).
         - قیمت فعلی [distance description from support/resistance levels].
 
-        >۴\. سناریوهای احتمالی و پیشنهاد معاملاتی\:
+        >۴. سناریوهای احتمالی و پیشنهاد معاملاتی:
         - با توجه به [indicator summary], سناریوی اصلی [bullish/bearish/neutral] است.
         - سناریوی صعودی: [bullish scenario description].
         - سناریوی نزولی: [bearish scenario description].
         - پیشنهاد معاملاتی عمومی: [trading recommendation based on analysis].
 
-        >۵\. ارزیابی ریسک\:
+        >۵. ارزیابی ریسک:
         - ریسک اصلی در این تحلیل، [main risk factor].
         - شکست قاطع سطح [key level] می‌تواند [impact description].
         - انتشار اخبار مهم اقتصادی یا تغییرات ناگهانی در احساسات بازار کریپتو می‌تواند به سرعت تحلیل تکنیکال را تحت تاثیر قرار دهد.
