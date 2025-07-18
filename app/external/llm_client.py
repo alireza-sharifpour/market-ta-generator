@@ -36,17 +36,18 @@ def unescape_markdownv2(text: str) -> str:
     """
     import re
     
-    # Remove multiple backslashes followed by special characters
-    # This handles patterns like \\\\\\- or \\\\\\. or \\\\\\_
-    special_chars = ["_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!"]
+    # Remove backslashes followed by special characters
+    # This handles patterns like \\- or \\. or \\_
+    special_chars = ["_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!", "\\"]
     
     for char in special_chars:
-        # Remove multiple backslashes before the character (e.g., \\\\\\- -> -)
-        pattern = r'\\+' + re.escape(char)
-        text = re.sub(pattern, char, text)
-    
-    # Also remove standalone multiple backslashes
-    text = re.sub(r'\\+', '', text)
+        # Remove single backslash before the character (e.g., \\- -> -)
+        if char == '\\':
+            # Handle backslash specially - remove escaped backslashes
+            text = text.replace('\\\\', '\\')
+        else:
+            pattern = r'\\' + re.escape(char)
+            text = re.sub(pattern, char, text)
     
     return text
 
@@ -55,6 +56,7 @@ def escape_markdownv2(text: str) -> str:
     """
     Escape MarkdownV2 special characters for Telegram.
     First removes any existing escape sequences to prevent double escaping.
+    Preserves '>' characters at the beginning of lines for blockquotes.
 
     In MarkdownV2, these characters are special and must be escaped with backslash:
     _*[]()~`>#+-=|{}.!
@@ -68,7 +70,7 @@ def escape_markdownv2(text: str) -> str:
     # First remove any existing escape sequences
     text = unescape_markdownv2(text)
     
-    # Characters that need escaping in MarkdownV2
+    # Characters that need escaping in MarkdownV2 (excluding '>' for now)
     special_chars = [
         "\\",  # Backslash must be escaped first to avoid double escaping
         "_",
@@ -79,7 +81,6 @@ def escape_markdownv2(text: str) -> str:
         ")",
         "~",
         "`",
-        ">",
         "#",
         "+",
         "-",
@@ -91,8 +92,33 @@ def escape_markdownv2(text: str) -> str:
         "!",
     ]
 
+    # Escape all special characters except '>'
     for char in special_chars:
         text = text.replace(char, f"\\{char}")
+
+    # Handle '>' character specially - only escape if it's NOT at the beginning of a line
+    # This preserves blockquote functionality while escaping '>' in other contexts
+    # Split by lines and process each line individually
+    lines = text.split('\n')
+    processed_lines = []
+    
+    for line in lines:
+        # If line starts with '>', don't escape the first '>'
+        if line.lstrip().startswith('>'):
+            # Find the first '>' after any leading whitespace
+            stripped = line.lstrip()
+            leading_space = line[:len(line) - len(stripped)]
+            # Keep the first '>' unescaped, escape any others in the line
+            rest_of_line = stripped[1:]  # Everything after the first '>'
+            rest_escaped = rest_of_line.replace('>', '\\>')
+            processed_line = leading_space + '>' + rest_escaped
+        else:
+            # Escape all '>' characters in non-blockquote lines
+            processed_line = line.replace('>', '\\>')
+        
+        processed_lines.append(processed_line)
+    
+    text = '\n'.join(processed_lines)
 
     return text
 
