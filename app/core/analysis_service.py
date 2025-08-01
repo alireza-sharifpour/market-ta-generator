@@ -21,8 +21,7 @@ from app.external.lbank_client import (
     fetch_ohlcv,
 )
 from app.external.llm_client import (
-    generate_detailed_analysis,
-    generate_summarized_analysis,
+    generate_combined_analysis,
 )
 
 # Set up logging
@@ -162,35 +161,23 @@ async def run_phase2_analysis(
             logger.error(error_msg, exc_info=True)
             return {"status": "error", "message": error_msg}
 
-        # Step 6: Generate detailed analysis using LLM
-        logger.info("Generating detailed analysis using LLM (Phase 2)")
+        # Step 6: Generate both detailed and summarized analysis using LLM in a single call
+        logger.info("Generating combined analysis using LLM (Phase 2 - optimized)")
         try:
-            analysis_text = generate_detailed_analysis(
+            combined_analysis = generate_combined_analysis(
                 pair, structured_llm_input, timeframe=timeframe_to_use
             )
-            logger.info("Successfully generated detailed analysis")
+            analysis_text = combined_analysis["detailed_analysis"]
+            analysis_summarized = combined_analysis["summarized_analysis"]
+            logger.info("Successfully generated both detailed and summarized analysis in single LLM call")
         except Exception as e:
-            error_msg = f"Failed to generate detailed analysis with LLM: {str(e)}"
+            error_msg = f"Failed to generate combined analysis with LLM: {str(e)}"
             logger.error(
                 error_msg, exc_info=True
             )  # exc_info for more details on LLM errors
             return {"status": "error", "message": error_msg}
 
-        # Step 7: Generate summarized analysis using LLM
-        logger.info("Generating summarized analysis using LLM")
-        analysis_summarized = None
-        try:
-            analysis_summarized = generate_summarized_analysis(
-                pair, structured_llm_input, timeframe=timeframe_to_use
-            )
-            logger.info("Successfully generated summarized analysis")
-        except Exception as e:
-            # Summarized analysis is not critical - log the error but continue
-            error_msg = f"Failed to generate summarized analysis with LLM: {str(e)}"
-            logger.warning(error_msg)
-            analysis_summarized = None
-
-        # Generate chart with indicators (Phase 3)
+        # Step 7: Generate chart with indicators (Phase 3)
         logger.info("Generating OHLCV chart with indicators")
         chart_image_base64 = None
         try:

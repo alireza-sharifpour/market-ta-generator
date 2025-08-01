@@ -529,6 +529,243 @@ def generate_summarized_analysis(
         raise
 
 
+def generate_combined_analysis(
+    pair: str, structured_data: str, timeframe: Optional[str] = None
+) -> Dict[str, str]:
+    """
+    Generate both detailed and summarized analysis in a single LLM call.
+
+    Args:
+        pair: The trading pair (e.g., 'BTCUSDT')
+        structured_data: A string containing formatted OHLCV data,
+                         technical indicators, and S/R levels.
+        timeframe: The timeframe of the data (e.g., 'day1', 'hour4')
+
+    Returns:
+        Dictionary containing both analyses:
+        {
+            "detailed_analysis": "The detailed analysis text in Persian",
+            "summarized_analysis": "The summarized analysis text in Persian"
+        }
+
+    Raises:
+        Exception: If there's an error in the analysis generation.
+    """
+    try:
+        # Get Persian timeframe phrases for both analyses
+        persian_timeframe_phrase_detailed = ""
+        persian_timeframe_phrase_summarized = ""
+        
+        if timeframe:
+            if timeframe == "minute1":
+                persian_timeframe_phrase_detailed = "۱ دقیقه‌ای"
+                persian_timeframe_phrase_summarized = "1M"
+            elif timeframe == "minute5":
+                persian_timeframe_phrase_detailed = "۵ دقیقه‌ای"
+                persian_timeframe_phrase_summarized = "5M"
+            elif timeframe == "minute15":
+                persian_timeframe_phrase_detailed = "۱۵ دقیقه‌ای"
+                persian_timeframe_phrase_summarized = "15M"
+            elif timeframe == "minute30":
+                persian_timeframe_phrase_detailed = "۳۰ دقیقه‌ای"
+                persian_timeframe_phrase_summarized = "30M"
+            elif timeframe == "hour1":
+                persian_timeframe_phrase_detailed = "۱ ساعته"
+                persian_timeframe_phrase_summarized = "1H"
+            elif timeframe == "hour4":
+                persian_timeframe_phrase_detailed = "۴ ساعته"
+                persian_timeframe_phrase_summarized = "4H"
+            elif timeframe == "hour8":
+                persian_timeframe_phrase_detailed = "۸ ساعته"
+                persian_timeframe_phrase_summarized = "8H"
+            elif timeframe == "hour12":
+                persian_timeframe_phrase_detailed = "۱۲ ساعته"
+                persian_timeframe_phrase_summarized = "12H"
+            elif timeframe == "day1":
+                persian_timeframe_phrase_detailed = "روزانه"
+                persian_timeframe_phrase_summarized = "1D"
+            elif timeframe == "week1":
+                persian_timeframe_phrase_detailed = "هفتگی"
+                persian_timeframe_phrase_summarized = "1W"
+            elif timeframe == "month1":
+                persian_timeframe_phrase_detailed = "ماهانه"
+                persian_timeframe_phrase_summarized = "1M"
+            else:
+                persian_timeframe_phrase_detailed = timeframe
+                persian_timeframe_phrase_summarized = timeframe
+
+        prompt = f"""
+        You are a professional cryptocurrency technical analyst. Generate BOTH a detailed analysis and a summarized analysis for {pair} in Persian using the provided data.
+
+        **Input Data:**
+        Trading Pair: {pair}
+        Timeframe: {persian_timeframe_phrase_detailed}
+        
+        ```
+        {structured_data}
+        ```
+
+        **Output Requirements:**
+        1. Language: **Persian (Farsi) only**
+        2. Format: MarkdownV2 for Telegram
+           - MarkdownV2 formatting guide:
+             * Bold text: Use **text** for bold formatting
+             * Italic text: Use __text__ for italic formatting
+             * Monospace/code: Use `text` for inline code
+             * Strikethrough: Use ~~text~~ for strikethrough
+             * Quote text: Use >text at the beginning of a line for quotes
+             * Lists are NOT supported in Telegram MarkdownV2
+             * Use bullet points with ▫️ or - symbols instead
+           - IMPORTANT: Do NOT escape any characters manually - this will be handled automatically
+        3. **CRITICAL**: You MUST return a valid JSON object with exactly this structure:
+        {{
+            "detailed_analysis": "DETAILED_ANALYSIS_CONTENT_HERE",
+            "summarized_analysis": "SUMMARIZED_ANALYSIS_CONTENT_HERE"
+        }}
+
+        **Detailed Analysis Structure:**
+        Follow this EXACT structure for the detailed_analysis field:
+
+        📊 تحلیل کامل‌تر:
+
+        >۱. خلاصه عمومی و وضعیت فعلی:
+        - در آخرین کندل [{persian_timeframe_phrase_detailed}] (تاریخ [date])، قیمت {pair} با [change_percentage] بسته شده است.
+        - قیمت فعلی ([current_price]) در محدوده [position description relative to range] قرار دارد.
+        - حجم معاملات در آخرین دوره [volume] بوده است.
+        - نوسانات اخیر در سطح [volatility_percentage] قرار دارد.
+
+        >۲. تحلیل تکنیکال جامع:
+        - میانگین‌های متحرک (EMAs):
+        - میانگین‌های متحرک کوتاه‌مدت (EMA_9 در [value] و EMA_21 در [value]) [trend_description] و [position_relative_to_price].
+        - میانگین متحرک بلندمدت (EMA_50 در [value]) [trend_description] و [position_relative_to_price].
+        - قیمت فعلی [position_description relative to EMAs].
+
+        - اندیکاتورهای مومنتوم (RSI, MFI):
+        - اندیکاتور RSI_14 با مقدار [value] در محدوده [overbought/oversold/neutral] قرار دارد و [trend_direction].
+        - اندیکاتور MFI_14 با مقدار [value] در محدوده [description] قرار دارد و [trend_direction].
+
+        - قدرت روند (ADX, DI+/DI-):
+        - اندیکاتور ADX_14 با مقدار [value] نشان‌دهنده [strong/weak/ranging trend].
+        - مقایسه DI+ ([value]) و DI- ([value]) نشان می‌دهد که [comparison and trend direction].
+
+        - باندهای نوسان (Bollinger Bands):
+        - قیمت فعلی ([price]) [position relative to bands] باندهای بولینگر قرار دارد.
+        - باند بالایی در فاصله [percentage] بالای قیمت و باند پایینی در فاصله [percentage] پایین‌تر از قیمت قرار دارد.
+        - پهنای باند [description of volatility].
+
+        >۳. سطوح حمایت و مقاومت کلیدی:
+        - بر اساس داده‌های ارائه شده، [resistance levels description].
+        - سطوح حمایت مهم در پایین‌تر از قیمت فعلی شناسایی شده‌اند:
+          - حمایت اول: در حدود قیمت [level] ([percentage] پایین‌تر از قیمت فعلی).
+          - حمایت دوم: در حدود قیمت [level] ([percentage] پایین‌تر از قیمت فعلی).
+        - قیمت فعلی [distance description from support/resistance levels].
+
+        >۴. سناریوهای احتمالی و پیشنهاد معاملاتی:
+        - با توجه به [indicator summary], سناریوی اصلی [bullish/bearish/neutral] است.
+        - سناریوی صعودی: [bullish scenario description].
+        - سناریوی نزولی: [bearish scenario description].
+        - پیشنهاد معاملاتی عمومی: [trading recommendation based on analysis].
+
+        >۵. ارزیابی ریسک:
+        - ریسک اصلی در این تحلیل، [main risk factor].
+        - شکست قاطع سطح [key level] می‌تواند [impact description].
+        - انتشار اخبار مهم اقتصادی یا تغییرات ناگهانی در احساسات بازار کریپتو می‌تواند به سرعت تحلیل تکنیکال را تحت تاثیر قرار دهد.
+
+        **Summarized Analysis Structure:**
+        Follow this EXACT structure for the summarized_analysis field:
+
+        📊 تحلیل {pair} - تایم‌فریم {persian_timeframe_phrase_summarized}
+
+        ▫️وضعیت کلی:
+        - قیمت لحظه‌ای: [current_price from "Current Market Price (Live)" section if available, otherwise use latest Close price]
+        - روند بلندمدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - روند کوتاه‌مدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - حمایت مهم بعدی: [support_level]
+        - مقاومت مهم بعدی: [resistance_level]
+
+        💭 توصیه عملی:
+        - [Short practical recommendation based on indicators]
+        - نقطه ورود احتمالی: [specific price range based on EMA levels, support levels, or pullback zones - e.g., "محدوده 105000-105500" or "در صورت پولبک به محدوده 105235-105500"]
+        - سطح کلیدی برای تایید: [confirmation level]
+        - سطح ریسک: [متوسط/بالا/پایین]
+
+        ⚠️ نکات مهم:
+        - [Key warning or note about EMA levels/resistance failure]
+        - [Important level that could change the outlook]
+
+        **Important Instructions:**
+        - Use ONLY the provided structured data
+        - Extract exact values from the data (EMAs, RSI, MFI, ADX, DI+, DI-, Bollinger Bands, Support/Resistance levels)
+        - For trend strength, use exactly one of: قوی, متوسط, ضعیف
+        - For trend direction, use exactly one of: صعودی, نزولی, خنثی
+        - Extract current price: Look for "Current Market Price (Live)" section first. If it exists, use the "Current Price" value. If not, use the Close price from "Latest OHLCV Data" section
+        - Use identified Support/Resistance levels from the data
+        - Base recommendations on ALL available indicators (EMAs, RSI, MFI, ADX, DI+/DI-, Bollinger Bands) but keep mentions brief in summarized analysis
+        - For entry points in summarized analysis: ALWAYS provide specific price ranges. Use EMA levels, support levels, or create reasonable pullback zones. Examples: "محدوده 105000-105500", "در صورت پولبک به محدوده EMA_21 (105235-105500)", "نزدیک سطح حمایت 104800-105200"
+        - Keep summarized recommendations practical and specific
+        - Provide detailed percentage calculations and comparisons in detailed analysis
+        - Use specific numbers and values throughout both analyses
+        - Maintain professional Persian technical analysis terminology
+        - **CRITICAL**: Return ONLY the JSON object - no extra text before or after
+        """
+
+        # Get the LLM client
+        llm_client = get_llm_client()
+
+        # Generate the combined analysis using the LLM
+        response_text = llm_client.generate_text(prompt)
+
+        # Parse the JSON response
+        import json
+        try:
+            # Clean the response text - remove any potential markdown code blocks
+            cleaned_response = response_text.strip()
+            if cleaned_response.startswith('```json'):
+                cleaned_response = cleaned_response[7:]
+            if cleaned_response.startswith('```'):
+                cleaned_response = cleaned_response[3:]
+            if cleaned_response.endswith('```'):
+                cleaned_response = cleaned_response[:-3]
+            cleaned_response = cleaned_response.strip()
+            
+            # Parse JSON
+            response_json = json.loads(cleaned_response)
+            
+            # Validate the response structure
+            if not isinstance(response_json, dict):
+                raise ValueError("Response is not a dictionary")
+            if "detailed_analysis" not in response_json:
+                raise ValueError("Missing 'detailed_analysis' field in response")
+            if "summarized_analysis" not in response_json:
+                raise ValueError("Missing 'summarized_analysis' field in response")
+            
+            # Extract and process both analyses
+            detailed_analysis = response_json["detailed_analysis"].strip()
+            summarized_analysis = response_json["summarized_analysis"].strip()
+            
+            # Apply MarkdownV2 escaping to both analyses
+            escaped_detailed = escape_markdownv2(detailed_analysis)
+            escaped_summarized = escape_markdownv2(summarized_analysis)
+            
+            return {
+                "detailed_analysis": escaped_detailed,
+                "summarized_analysis": escaped_summarized
+            }
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON response: {str(e)}")
+            logger.error(f"Raw response: {response_text[:500]}...")
+            raise ValueError(f"Invalid JSON response from LLM: {str(e)}")
+        except KeyError as e:
+            logger.error(f"Missing required field in JSON response: {str(e)}")
+            logger.error(f"Response structure: {response_json.keys() if 'response_json' in locals() else 'N/A'}")
+            raise ValueError(f"Invalid response structure: missing {str(e)}")
+
+    except Exception as e:
+        logger.error(f"Error generating combined analysis for {pair}: {str(e)}")
+        raise
+
+
 def generate_detailed_analysis(
     pair: str, structured_data: str, timeframe: Optional[str] = None
 ) -> str:
