@@ -14,7 +14,12 @@ from app.core.data_processor import (
     prepare_llm_input_phase2,
     process_raw_data,
 )
-from app.external.lbank_client import LBankAPIError, LBankConnectionError, fetch_ohlcv, fetch_current_price
+from app.external.lbank_client import (
+    LBankAPIError,
+    LBankConnectionError,
+    fetch_current_price,
+    fetch_ohlcv,
+)
 from app.external.llm_client import (
     generate_detailed_analysis,
     generate_summarized_analysis,
@@ -30,7 +35,7 @@ class AnalysisError(Exception):
     pass
 
 
-def run_phase2_analysis(
+async def run_phase2_analysis(
     pair: str, timeframe: Optional[str] = None, limit: Optional[int] = None
 ) -> Dict[str, Any]:
     """
@@ -66,7 +71,9 @@ def run_phase2_analysis(
         # Step 1: Fetch raw OHLCV data
         logger.info(f"Fetching OHLCV data for {pair}")
         try:
-            raw_data = fetch_ohlcv(pair, timeframe=timeframe_to_use, limit=limit_to_use)
+            raw_data = await fetch_ohlcv(
+                pair, timeframe=timeframe_to_use, limit=limit_to_use
+            )
             logger.info(f"Successfully fetched {len(raw_data)} data points for {pair}")
         except (LBankAPIError, LBankConnectionError) as e:
             error_msg = f"Failed to fetch data from LBank: {str(e)}"
@@ -111,7 +118,9 @@ def run_phase2_analysis(
         logger.info("Identifying S/R levels")
         try:
             # Pass timeframe for optimal parameter selection
-            sr_levels = identify_support_resistance(df_with_indicators, timeframe=timeframe_to_use)
+            sr_levels = identify_support_resistance(
+                df_with_indicators, timeframe=timeframe_to_use
+            )
             logger.info(
                 f"Successfully identified S/R levels with timeframe {timeframe_to_use}: "
                 f"Support {sr_levels.get('support')}, Resistance {sr_levels.get('resistance')}"
@@ -129,7 +138,7 @@ def run_phase2_analysis(
         logger.info(f"Fetching current price for {pair}")
         current_price_data = None
         try:
-            current_price_data = fetch_current_price(pair)
+            current_price_data = await fetch_current_price(pair)
             logger.info(f"Successfully fetched current price data for {pair}")
         except (LBankAPIError, LBankConnectionError) as e:
             # Log the error but don't fail the analysis - current price is supplementary

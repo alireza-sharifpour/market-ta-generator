@@ -6,7 +6,7 @@ import uuid
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urljoin
 
-import requests
+import httpx
 
 from app.config import (
     DEFAULT_SIZE,
@@ -16,6 +16,7 @@ from app.config import (
     LBANK_API_SECRET,
     LBANK_KLINE_ENDPOINT,
 )
+from app.core.connection_manager import get_http_client
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ def _calculate_past_timestamp(timeframe: str, periods: int = 50) -> int:
     return past_timestamp
 
 
-def fetch_ohlcv(
+async def fetch_ohlcv(
     pair: str, timeframe: Optional[str] = None, limit: Optional[int] = None
 ) -> List[List[Union[int, float]]]:
     """
@@ -217,8 +218,9 @@ def fetch_ohlcv(
     logger.info(f"Headers: {headers}")
 
     try:
-        # Make the API request
-        response = requests.get(url, params=params, headers=headers, timeout=30)
+        # Make the API request using connection pool
+        client = await get_http_client()
+        response = await client.get(url, params=params, headers=headers)
 
         # Check if the request was successful
         if response.status_code != 200:
@@ -311,7 +313,7 @@ def fetch_ohlcv(
             logger.error(error_msg)
             raise LBankAPIError(error_msg)
 
-    except requests.exceptions.RequestException as e:
+    except httpx.RequestError as e:
         error_msg = f"Connection error when querying LBank API: {str(e)}"
         logger.error(error_msg)
         raise LBankConnectionError(error_msg)
@@ -321,7 +323,7 @@ def fetch_ohlcv(
         raise LBankAPIError(error_msg)
 
 
-def fetch_current_price(pair: str) -> Dict[str, Any]:
+async def fetch_current_price(pair: str) -> Dict[str, Any]:
     """
     Fetches the current price and 24hr statistics for a trading pair from LBank API.
 
@@ -352,8 +354,9 @@ def fetch_current_price(pair: str) -> Dict[str, Any]:
     logger.info(f"Making request to URL: {url}")
 
     try:
-        # Make the API request
-        response = requests.get(url, params=params, headers=headers, timeout=30)
+        # Make the API request using connection pool
+        client = await get_http_client()
+        response = await client.get(url, params=params, headers=headers)
 
         # Check if the request was successful
         if response.status_code != 200:
@@ -381,13 +384,24 @@ def fetch_current_price(pair: str) -> Dict[str, Any]:
                 # The ticker API returns a list with one item for single symbol requests
                 if isinstance(data, list) and len(data) > 0:
                     ticker_data = data[0]
+                    if isinstance(ticker_data, dict):
+                        logger.info(
+                            f"Successfully fetched current price for {pair}: {ticker_data.get('ticker', {}).get('latest', 'N/A')}"
+                        )
+                        return ticker_data
+                    else:
+                        error_msg = f"Unexpected ticker data format: {ticker_data}"
+                        logger.error(error_msg)
+                        raise LBankAPIError(error_msg)
+                elif isinstance(data, dict):
+                    logger.info(
+                        f"Successfully fetched current price for {pair}: {data.get('ticker', {}).get('latest', 'N/A')}"
+                    )
+                    return data
                 else:
-                    ticker_data = data
-
-                logger.info(
-                    f"Successfully fetched current price for {pair}: {ticker_data.get('ticker', {}).get('latest', 'N/A')}"
-                )
-                return ticker_data
+                    error_msg = f"Unexpected data format from LBank API: {data}"
+                    logger.error(error_msg)
+                    raise LBankAPIError(error_msg)
             else:
                 error_msg = "LBank API response does not contain data field"
                 logger.error(error_msg)
@@ -397,7 +411,7 @@ def fetch_current_price(pair: str) -> Dict[str, Any]:
             logger.error(error_msg)
             raise LBankAPIError(error_msg)
 
-    except requests.exceptions.RequestException as e:
+    except httpx.RequestError as e:
         error_msg = f"Connection error when querying LBank API: {str(e)}"
         logger.error(error_msg)
         raise LBankConnectionError(error_msg)

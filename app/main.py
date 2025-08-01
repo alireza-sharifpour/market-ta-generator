@@ -4,7 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.endpoints.analysis import router as analysis_router
+from app.core.connection_manager import close_connections
 from app.middleware.ip_whitelist import add_ip_whitelist_middleware
+from app.middleware.rate_limiter import add_rate_limiter_middleware
 from app.utils.logging_config import setup_logging
 
 # Initialize logging with DEBUG level for development
@@ -23,6 +25,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     logger.info("Market TA Generator service is shutting down...")
+    await close_connections()
 
 
 app = FastAPI(
@@ -34,6 +37,7 @@ app = FastAPI(
 
 # Add middleware
 add_ip_whitelist_middleware(app)
+add_rate_limiter_middleware(app, calls_per_minute=20, max_concurrent=3, burst_size=5)
 
 # Include routers
 app.include_router(analysis_router, prefix="/api/v1")

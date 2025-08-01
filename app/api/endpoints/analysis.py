@@ -34,7 +34,7 @@ async def analyze_pair(request: AnalysisRequest):
             logger.info(f"Using limit: {request.limit}")
 
         # Call the analysis service to process the request
-        result = run_phase2_analysis(
+        result = await run_phase2_analysis(
             request.pair, timeframe=request.timeframe, limit=request.limit
         )
 
