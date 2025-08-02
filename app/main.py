@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.endpoints.analysis import router as analysis_router
 from app.core.connection_manager import close_connections
@@ -22,6 +23,21 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     logger.info("Market TA Generator service is starting up...")
+    
+    # Initialize Prometheus metrics
+    instrumentator = Instrumentator(
+        should_group_status_codes=False,
+        should_ignore_untemplated=True,
+        should_respect_env_var=True,
+        should_instrument_requests_inprogress=True,
+        excluded_handlers=[".*admin.*", "/metrics"],
+        env_var_name="ENABLE_METRICS",
+        inprogress_name="inprogress",
+        inprogress_labels=True,
+    )
+    instrumentator.instrument(app).expose(app)
+    logger.info("Prometheus metrics instrumentation enabled at /metrics")
+    
     yield
     # Shutdown
     logger.info("Market TA Generator service is shutting down...")
