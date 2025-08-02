@@ -98,21 +98,52 @@ def setup_logging(log_level: Optional[str] = None) -> None:
         # Create logs directory if it doesn't exist
         log_dir = "/app/logs"
         os.makedirs(log_dir, exist_ok=True)
+        
+        # Test file creation first
+        test_file = os.path.join(log_dir, "test_write.log")
+        with open(test_file, 'w') as f:
+            f.write("test\n")
+        os.remove(test_file)
 
-        # Create rotating file handler
+        # Import and create rotating file handler
         from logging.handlers import RotatingFileHandler
 
+        log_file_path = os.path.join(log_dir, "app.log")
         file_handler = RotatingFileHandler(
-            filename=os.path.join(log_dir, "app.log"),
+            filename=log_file_path,
             maxBytes=10 * 1024 * 1024,  # 10MB
             backupCount=5,
+            encoding='utf-8'
         )
+        
+        # Use JSON formatter for file as well
         file_handler.setFormatter(json_formatter)
+        file_handler.setLevel(level)
+        
+        # Add to logger
         logger.addHandler(file_handler)
 
+        # Force a log message to create the file
         logger.info("File logging enabled: /app/logs/app.log")
+        
+        # Verify file was created
+        if os.path.exists(log_file_path):
+            logger.info(f"Log file confirmed created: {log_file_path}")
+        else:
+            logger.error(f"Log file was not created: {log_file_path}")
+            
+    except ImportError as e:
+        print(f"IMPORT ERROR: Could not import RotatingFileHandler: {e}")
+        logger.error(f"Could not import RotatingFileHandler: {e}")
+    except PermissionError as e:
+        print(f"PERMISSION ERROR: {e}")
+        logger.error(f"Permission error setting up file logging: {e}")
     except Exception as e:
-        logger.warning(f"Could not setup file logging: {e}")
+        print(f"GENERAL ERROR: {e}")
+        logger.error(f"Could not setup file logging: {e}")
+        import traceback
+        print(f"TRACEBACK: {traceback.format_exc()}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
 
     # Log the initial setup
     logger.info(
