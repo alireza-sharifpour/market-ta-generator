@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 from typing import Optional
@@ -91,6 +92,27 @@ def setup_logging(log_level: Optional[str] = None) -> None:
 
     # Add the console handler
     logger.addHandler(console_handler)
+
+    # Add file handler for persistent logging
+    try:
+        # Create logs directory if it doesn't exist
+        log_dir = "/app/logs"
+        os.makedirs(log_dir, exist_ok=True)
+
+        # Create rotating file handler
+        from logging.handlers import RotatingFileHandler
+
+        file_handler = RotatingFileHandler(
+            filename=os.path.join(log_dir, "app.log"),
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=5,
+        )
+        file_handler.setFormatter(json_formatter)
+        logger.addHandler(file_handler)
+
+        logger.info("File logging enabled: /app/logs/app.log")
+    except Exception as e:
+        logger.warning(f"Could not setup file logging: {e}")
 
     # Log the initial setup
     logger.info(

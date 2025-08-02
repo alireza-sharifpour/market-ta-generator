@@ -29,7 +29,7 @@ scrape_configs:
             tag: tag
           source: attrs
       - regex:
-          expression: "/var/lib/docker/containers/(?P<container_id>[a-f0-9]+)/"
+          expression: "/var/lib/docker/containers/(?P<container_id>[a-f0-9]{12})[a-f0-9]*/"
           source: filename
       - docker: {}
       - timestamp:
@@ -41,6 +41,28 @@ scrape_configs:
       - output:
           source: output
 
+  - job_name: persistent-app-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: app-logs
+          service: market-ta-generator
+          source: persistent
+          __path__: /logs/*.log
+
+    pipeline_stages:
+      - json: {}
+      - timestamp:
+          format: RFC3339Nano
+          source: timestamp
+      - labels:
+          level:
+          logger:
+          module:
+      - output:
+          source: message
+
   - job_name: syslog
     static_configs:
       - targets:
@@ -48,12 +70,3 @@ scrape_configs:
         labels:
           job: syslog
           __path__: /var/log/syslog
-
-  - job_name: market-ta-generator
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: market-ta-generator
-          service: market-ta-generator
-          __path__: /var/log/market-ta-generator/*.log
