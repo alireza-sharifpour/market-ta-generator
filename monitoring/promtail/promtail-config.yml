@@ -22,20 +22,22 @@ scrape_configs:
           expressions:
             output: log
             stream: stream
-            attrs:
+            attrs: attrs
+            time: time
       - json:
           expressions:
-            tag:
+            tag: tag
           source: attrs
       - regex:
-          expression: (?P<container_name>(?:[^|]*))\|
-          source: tag
+          expression: "/var/lib/docker/containers/(?P<container_id>[a-f0-9]+)/"
+          source: filename
+      - docker: {}
       - timestamp:
           format: RFC3339Nano
           source: time
       - labels:
           stream:
-          container_name:
+          container_id:
       - output:
           source: output
 
