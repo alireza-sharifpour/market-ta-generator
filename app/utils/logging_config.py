@@ -94,34 +94,47 @@ def setup_logging(log_level: Optional[str] = None) -> None:
     logger.addHandler(console_handler)
 
     # Add file handler for persistent logging
+    # First log that we're attempting file logging setup
+    logger.info("Attempting to set up persistent file logging...")
+    
     try:
         # Create logs directory if it doesn't exist
         log_dir = "/app/logs"
+        logger.info(f"Creating logs directory: {log_dir}")
         os.makedirs(log_dir, exist_ok=True)
+        logger.info(f"Logs directory created successfully: {log_dir}")
         
         # Test file creation first
         test_file = os.path.join(log_dir, "test_write.log")
+        logger.info(f"Testing file creation: {test_file}")
         with open(test_file, 'w') as f:
             f.write("test\n")
         os.remove(test_file)
+        logger.info("File creation test successful")
 
         # Import and create rotating file handler
+        logger.info("Importing RotatingFileHandler...")
         from logging.handlers import RotatingFileHandler
+        logger.info("RotatingFileHandler imported successfully")
 
         log_file_path = os.path.join(log_dir, "app.log")
+        logger.info(f"Creating RotatingFileHandler for: {log_file_path}")
         file_handler = RotatingFileHandler(
             filename=log_file_path,
             maxBytes=10 * 1024 * 1024,  # 10MB
             backupCount=5,
             encoding='utf-8'
         )
+        logger.info("RotatingFileHandler created successfully")
         
         # Use JSON formatter for file as well
         file_handler.setFormatter(json_formatter)
         file_handler.setLevel(level)
+        logger.info("File handler formatter and level set")
         
         # Add to logger
         logger.addHandler(file_handler)
+        logger.info("File handler added to logger")
 
         # Force a log message to create the file
         logger.info("File logging enabled: /app/logs/app.log")
@@ -133,17 +146,21 @@ def setup_logging(log_level: Optional[str] = None) -> None:
             logger.error(f"Log file was not created: {log_file_path}")
             
     except ImportError as e:
-        print(f"IMPORT ERROR: Could not import RotatingFileHandler: {e}")
-        logger.error(f"Could not import RotatingFileHandler: {e}")
+        error_msg = f"Could not import RotatingFileHandler: {e}"
+        print(f"IMPORT ERROR: {error_msg}")
+        logger.error(error_msg)
     except PermissionError as e:
-        print(f"PERMISSION ERROR: {e}")
-        logger.error(f"Permission error setting up file logging: {e}")
+        error_msg = f"Permission error setting up file logging: {e}"
+        print(f"PERMISSION ERROR: {error_msg}")
+        logger.error(error_msg)
     except Exception as e:
-        print(f"GENERAL ERROR: {e}")
-        logger.error(f"Could not setup file logging: {e}")
+        error_msg = f"Could not setup file logging: {e}"
+        print(f"GENERAL ERROR: {error_msg}")
+        logger.error(error_msg)
         import traceback
-        print(f"TRACEBACK: {traceback.format_exc()}")
-        logger.error(f"Full traceback: {traceback.format_exc()}")
+        traceback_msg = traceback.format_exc()
+        print(f"TRACEBACK: {traceback_msg}")
+        logger.error(f"Full traceback: {traceback_msg}")
 
     # Log the initial setup
     logger.info(
