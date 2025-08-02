@@ -119,10 +119,14 @@ def setup_logging(log_level: Optional[str] = None) -> None:
 
         log_file_path = os.path.join(log_dir, "app.log")
         logger.info(f"Creating RotatingFileHandler for: {log_file_path}")
+        # Get log file settings from environment or use defaults
+        max_bytes = int(os.getenv("LOG_FILE_MAX_MB", "100")) * 1024 * 1024  # Default 100MB
+        backup_count = int(os.getenv("LOG_FILE_BACKUP_COUNT", "10"))  # Default 10 backups
+        
         file_handler = RotatingFileHandler(
             filename=log_file_path,
-            maxBytes=10 * 1024 * 1024,  # 10MB
-            backupCount=5,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
             encoding='utf-8'
         )
         logger.info("RotatingFileHandler created successfully")

@@ -25,6 +25,8 @@ services:
     environment:
       - ENABLE_METRICS=true
       - ENVIRONMENT=production
+      - LOG_FILE_MAX_MB=100          # 100MB per log file
+      - LOG_FILE_BACKUP_COUNT=10     # Keep 10 backup files (total ~1.1GB)
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"] # Assumes app has a working root endpoint
       interval: 30s
