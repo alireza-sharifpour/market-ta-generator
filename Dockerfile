@@ -38,8 +38,8 @@ ARG CACHEBUST=1
 # Copy the application code
 COPY app/ app/
 
-# Change ownership to the non-root user
-RUN chown -R appuser:appuser /app
+# Create logs directory with proper ownership
+RUN mkdir -p /app/logs && chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
