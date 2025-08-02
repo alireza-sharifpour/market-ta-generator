@@ -27,28 +27,48 @@ logger = logging.getLogger(__name__)
 def unescape_markdownv2(text: str) -> str:
     """
     Remove existing MarkdownV2 escape sequences to prevent double escaping.
-    
+
     Args:
         text: The text that may contain existing escape sequences
-        
+
     Returns:
         Text with escape sequences removed
     """
     import re
-    
+
     # Remove backslashes followed by special characters
     # This handles patterns like \\- or \\. or \\_
-    special_chars = ["_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!", "\\"]
-    
+    special_chars = [
+        "_",
+        "*",
+        "[",
+        "]",
+        "(",
+        ")",
+        "~",
+        "`",
+        ">",
+        "#",
+        "+",
+        "-",
+        "=",
+        "|",
+        "{",
+        "}",
+        ".",
+        "!",
+        "\\",
+    ]
+
     for char in special_chars:
         # Remove single backslash before the character (e.g., \\- -> -)
-        if char == '\\':
+        if char == "\\":
             # Handle backslash specially - remove escaped backslashes
-            text = text.replace('\\\\', '\\')
+            text = text.replace("\\\\", "\\")
         else:
-            pattern = r'\\' + re.escape(char)
+            pattern = r"\\" + re.escape(char)
             text = re.sub(pattern, char, text)
-    
+
     return text
 
 
@@ -69,7 +89,7 @@ def escape_markdownv2(text: str) -> str:
     """
     # First remove any existing escape sequences
     text = unescape_markdownv2(text)
-    
+
     # Characters that need escaping in MarkdownV2 (excluding '>' for now)
     special_chars = [
         "\\",  # Backslash must be escaped first to avoid double escaping
@@ -99,26 +119,26 @@ def escape_markdownv2(text: str) -> str:
     # Handle '>' character specially - only escape if it's NOT at the beginning of a line
     # This preserves blockquote functionality while escaping '>' in other contexts
     # Split by lines and process each line individually
-    lines = text.split('\n')
+    lines = text.split("\n")
     processed_lines = []
-    
+
     for line in lines:
         # If line starts with '>', don't escape the first '>'
-        if line.lstrip().startswith('>'):
+        if line.lstrip().startswith(">"):
             # Find the first '>' after any leading whitespace
             stripped = line.lstrip()
-            leading_space = line[:len(line) - len(stripped)]
+            leading_space = line[: len(line) - len(stripped)]
             # Keep the first '>' unescaped, escape any others in the line
             rest_of_line = stripped[1:]  # Everything after the first '>'
-            rest_escaped = rest_of_line.replace('>', '\\>')
-            processed_line = leading_space + '>' + rest_escaped
+            rest_escaped = rest_of_line.replace(">", "\\>")
+            processed_line = leading_space + ">" + rest_escaped
         else:
             # Escape all '>' characters in non-blockquote lines
-            processed_line = line.replace('>', '\\>')
-        
+            processed_line = line.replace(">", "\\>")
+
         processed_lines.append(processed_line)
-    
-    text = '\n'.join(processed_lines)
+
+    text = "\n".join(processed_lines)
 
     return text
 
@@ -555,7 +575,7 @@ def generate_combined_analysis(
         # Get Persian timeframe phrases for both analyses
         persian_timeframe_phrase_detailed = ""
         persian_timeframe_phrase_summarized = ""
-        
+
         if timeframe:
             if timeframe == "minute1":
                 persian_timeframe_phrase_detailed = "۱ دقیقه‌ای"
@@ -717,20 +737,21 @@ def generate_combined_analysis(
 
         # Parse the JSON response
         import json
+
         try:
             # Clean the response text - remove any potential markdown code blocks
             cleaned_response = response_text.strip()
-            if cleaned_response.startswith('```json'):
+            if cleaned_response.startswith("```json"):
                 cleaned_response = cleaned_response[7:]
-            if cleaned_response.startswith('```'):
+            if cleaned_response.startswith("```"):
                 cleaned_response = cleaned_response[3:]
-            if cleaned_response.endswith('```'):
+            if cleaned_response.endswith("```"):
                 cleaned_response = cleaned_response[:-3]
             cleaned_response = cleaned_response.strip()
-            
+
             # Parse JSON
             response_json = json.loads(cleaned_response)
-            
+
             # Validate the response structure
             if not isinstance(response_json, dict):
                 raise ValueError("Response is not a dictionary")
@@ -738,27 +759,30 @@ def generate_combined_analysis(
                 raise ValueError("Missing 'detailed_analysis' field in response")
             if "summarized_analysis" not in response_json:
                 raise ValueError("Missing 'summarized_analysis' field in response")
-            
+
             # Extract and process both analyses
             detailed_analysis = response_json["detailed_analysis"].strip()
             summarized_analysis = response_json["summarized_analysis"].strip()
-            
+
             # Apply MarkdownV2 escaping to both analyses
             escaped_detailed = escape_markdownv2(detailed_analysis)
             escaped_summarized = escape_markdownv2(summarized_analysis)
-            
+
             return {
                 "detailed_analysis": escaped_detailed,
-                "summarized_analysis": escaped_summarized
+                "summarized_analysis": escaped_summarized,
             }
-            
+
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {str(e)}")
-            logger.error(f"Raw response: {response_text[:500]}...")
+            logger.error("Raw response: %s", response_text[:500])
             raise ValueError(f"Invalid JSON response from LLM: {str(e)}")
         except KeyError as e:
             logger.error(f"Missing required field in JSON response: {str(e)}")
-            logger.error(f"Response structure: {response_json.keys() if 'response_json' in locals() else 'N/A'}")
+            if "response_json" in locals():
+                logger.error("Response structure keys: %s", list(response_json.keys()))
+            else:
+                logger.error("Response structure: N/A")
             raise ValueError(f"Invalid response structure: missing {str(e)}")
 
     except Exception as e:
