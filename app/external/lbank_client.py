@@ -3,6 +3,8 @@ import hmac
 import logging
 import time
 import uuid
+import asyncio
+import random
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urljoin
 
@@ -60,6 +62,42 @@ def _create_signature(params: Dict[str, Any], secret_key: str) -> str:
     ).hexdigest()
 
     return signature
+
+
+
+async def _retry_with_backoff(func, max_retries: int = 3, base_delay: float = 1.0):
+    """
+    Retry function with exponential backoff and jitter.
+    
+    Args:
+        func: Async function to retry
+        max_retries: Maximum number of retry attempts
+        base_delay: Base delay in seconds
+        
+    Returns:
+        Result of the function call
+        
+    Raises:
+        Last exception if all retries fail
+    """
+    last_exception = Exception("No attempts made")
+    
+    for attempt in range(max_retries + 1):
+        try:
+            return await func()
+        except (httpx.RequestError, httpx.TimeoutException) as e:
+            last_exception = e
+            
+            if attempt == max_retries:
+                logger.error(f"All {max_retries + 1} attempts failed, giving up")
+                break
+                
+            # Calculate delay with exponential backoff and jitter
+            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+            logger.warning(f"Attempt {attempt + 1} failed: {str(e)}, retrying in {delay:.2f}s")
+            await asyncio.sleep(delay)
+            
+    raise last_exception
 
 
 def _calculate_past_timestamp(timeframe: str, periods: int = 50) -> int:
@@ -218,9 +256,12 @@ async def fetch_ohlcv(
     logger.info(f"Headers: {headers}")
 
     try:
-        # Make the API request using connection pool
-        client = await get_http_client()
-        response = await client.get(url, params=params, headers=headers)
+        # Make the API request with retry logic
+        async def make_request():
+            client = await get_http_client()
+            return await client.get(url, params=params, headers=headers)
+        
+        response = await _retry_with_backoff(make_request, max_retries=3, base_delay=1.0)
 
         # Check if the request was successful
         if response.status_code != 200:
@@ -354,9 +395,12 @@ async def fetch_current_price(pair: str) -> Dict[str, Any]:
     logger.info(f"Making request to URL: {url}")
 
     try:
-        # Make the API request using connection pool
-        client = await get_http_client()
-        response = await client.get(url, params=params, headers=headers)
+        # Make the API request with retry logic
+        async def make_request():
+            client = await get_http_client()
+            return await client.get(url, params=params, headers=headers)
+        
+        response = await _retry_with_backoff(make_request, max_retries=3, base_delay=1.0)
 
         # Check if the request was successful
         if response.status_code != 200:

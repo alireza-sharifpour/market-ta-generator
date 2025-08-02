@@ -24,16 +24,22 @@ class ConnectionManager:
     async def get_client(self) -> httpx.AsyncClient:
         """Get or create an async HTTP client with connection pooling."""
         if self._client is None or self._client.is_closed:
-            # Connection pool limits for better concurrency
+            # Enhanced connection pool limits for better reliability
             limits = httpx.Limits(
-                max_keepalive_connections=20, max_connections=100, keepalive_expiry=30.0
+                max_keepalive_connections=50, 
+                max_connections=200, 
+                keepalive_expiry=60.0
             )
 
-            # Timeout configuration
-            timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=5.0)
+            # Timeout configuration - increased for better reliability
+            timeout = httpx.Timeout(connect=30.0, read=60.0, write=30.0, pool=10.0)
 
             self._client = httpx.AsyncClient(
-                limits=limits, timeout=timeout, follow_redirects=True
+                limits=limits, 
+                timeout=timeout, 
+                follow_redirects=True,
+                http2=True,  # Enable HTTP/2 for better performance
+                verify=True  # Ensure SSL verification
             )
 
             logger.info("Created new HTTP client with connection pooling")
