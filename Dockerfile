@@ -32,6 +32,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN adduser --disabled-password --gecos "" appuser && \
     chown -R appuser:appuser /app
 
+# Add build arg to bust cache when code changes
+ARG CACHEBUST=1
+
 # Copy the application code
 COPY app/ app/
 
