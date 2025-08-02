@@ -53,7 +53,7 @@ instrumentator.instrument(app).expose(app)
 
 # Add middleware
 add_ip_whitelist_middleware(app)
-add_rate_limiter_middleware(app, calls_per_minute=20, max_concurrent=3, burst_size=5)
+add_rate_limiter_middleware(app, calls_per_minute=300, max_concurrent=50, burst_size=50)
 
 # Include routers
 app.include_router(analysis_router, prefix="/api/v1")
