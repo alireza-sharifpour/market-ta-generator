@@ -164,12 +164,14 @@ async def run_phase2_analysis(
         # Step 6: Generate both detailed and summarized analysis using LLM in a single call
         logger.info("Generating combined analysis using LLM (Phase 2 - optimized)")
         try:
-            combined_analysis = generate_combined_analysis(
+            combined_analysis = await generate_combined_analysis(
                 pair, structured_llm_input, timeframe=timeframe_to_use
             )
             analysis_text = combined_analysis["detailed_analysis"]
             analysis_summarized = combined_analysis["summarized_analysis"]
-            logger.info("Successfully generated both detailed and summarized analysis in single LLM call")
+            logger.info(
+                "Successfully generated both detailed and summarized analysis in single LLM call"
+            )
         except Exception as e:
             error_msg = f"Failed to generate combined analysis with LLM: {str(e)}"
             logger.error(

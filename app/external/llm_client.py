@@ -4,17 +4,17 @@ This implementation uses OpenAI by default, but is designed to be easily swappab
 """
 
 import abc
+import asyncio
 import logging
-import time
 from typing import Dict, Optional
 
 # Import error types directly from openai package
 from openai import (
     APIConnectionError,
     APIError,
+    AsyncOpenAI,
     AuthenticationError,
     BadRequestError,
-    OpenAI,
     RateLimitError,
 )
 
@@ -147,7 +147,7 @@ class BaseLLMClient(abc.ABC):
     """Abstract base class for LLM clients to enable easy provider switching."""
 
     @abc.abstractmethod
-    def generate_text(self, prompt: str) -> str:
+    async def generate_text(self, prompt: str) -> str:
         """
         Generate text based on the provided prompt.
 
@@ -184,13 +184,13 @@ class OpenAIClient(BaseLLMClient):
             raise ValueError("OpenAI API key is required.")
 
         try:
-            self.client = OpenAI(api_key=api_key, base_url=AVALAI_API_BASE_URL)
-            logger.info(f"Initialized OpenAI client with model: {model}")
+            self.client = AsyncOpenAI(api_key=api_key, base_url=AVALAI_API_BASE_URL)
+            logger.info(f"Initialized AsyncOpenAI client with model: {model}")
         except Exception as e:
-            logger.error(f"Failed to initialize OpenAI client: {str(e)}")
+            logger.error(f"Failed to initialize AsyncOpenAI client: {str(e)}")
             raise
 
-    def generate_text(
+    async def generate_text(
         self, prompt: str, max_retries: int = 3, retry_delay: int = 2
     ) -> str:
         """
@@ -216,8 +216,8 @@ class OpenAIClient(BaseLLMClient):
                 logger.info(prompt)
                 logger.info("==========================================")
 
-                # Make the API call to OpenAI
-                response = self.client.chat.completions.create(
+                # Make the async API call to OpenAI
+                response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=[
                         {
@@ -249,7 +249,7 @@ class OpenAIClient(BaseLLMClient):
                     logger.warning(
                         f"OpenAI API error: {str(e)}. Retrying in {retry_delay} seconds... (Attempt {retries}/{max_retries})"
                     )
-                    time.sleep(retry_delay)
+                    await asyncio.sleep(retry_delay)
                 else:
                     logger.error(
                         f"Max retries reached. Failed to generate text with OpenAI: {str(e)}"
@@ -272,7 +272,7 @@ class OpenAIClient(BaseLLMClient):
                     logger.warning(
                         f"OpenAI API error: {str(e)}. Retrying in {retry_delay} seconds... (Attempt {retries}/{max_retries})"
                     )
-                    time.sleep(retry_delay * 2)  # Wait longer for API errors
+                    await asyncio.sleep(retry_delay * 2)  # Wait longer for API errors
                 else:
                     logger.error(f"OpenAI API error after max retries: {str(e)}")
                     raise
@@ -313,7 +313,7 @@ def get_llm_client(
         raise ValueError(f"Unsupported LLM provider: {provider}")
 
 
-def generate_basic_analysis(
+async def generate_basic_analysis(
     pair: str, data_summary: str, timeframe: Optional[str] = None
 ) -> str:
     """
@@ -416,7 +416,7 @@ def generate_basic_analysis(
         llm_client = get_llm_client()
 
         # Generate the analysis using the LLM
-        analysis = llm_client.generate_text(prompt)
+        analysis = await llm_client.generate_text(prompt)
 
         # Apply MarkdownV2 escaping to ensure Telegram compatibility
         escaped_analysis = escape_markdownv2(analysis)
@@ -428,7 +428,7 @@ def generate_basic_analysis(
         raise
 
 
-def generate_summarized_analysis(
+async def generate_summarized_analysis(
     pair: str, structured_data: str, timeframe: Optional[str] = None
 ) -> str:
     """
@@ -537,7 +537,7 @@ def generate_summarized_analysis(
         llm_client = get_llm_client()
 
         # Generate the analysis using the LLM
-        analysis = llm_client.generate_text(prompt)
+        analysis = await llm_client.generate_text(prompt)
 
         # Apply MarkdownV2 escaping to ensure Telegram compatibility
         escaped_analysis = escape_markdownv2(analysis)
@@ -549,7 +549,7 @@ def generate_summarized_analysis(
         raise
 
 
-def generate_combined_analysis(
+async def generate_combined_analysis(
     pair: str, structured_data: str, timeframe: Optional[str] = None
 ) -> Dict[str, str]:
     """
@@ -733,7 +733,7 @@ def generate_combined_analysis(
         llm_client = get_llm_client()
 
         # Generate the combined analysis using the LLM
-        response_text = llm_client.generate_text(prompt)
+        response_text = await llm_client.generate_text(prompt)
 
         # Parse the JSON response
         import json
@@ -790,7 +790,7 @@ def generate_combined_analysis(
         raise
 
 
-def generate_detailed_analysis(
+async def generate_detailed_analysis(
     pair: str, structured_data: str, timeframe: Optional[str] = None
 ) -> str:
     """
@@ -921,7 +921,7 @@ def generate_detailed_analysis(
         llm_client = get_llm_client()
 
         # Generate the analysis using the LLM
-        analysis = llm_client.generate_text(prompt)
+        analysis = await llm_client.generate_text(prompt)
 
         # Apply MarkdownV2 escaping to ensure Telegram compatibility
         escaped_analysis = escape_markdownv2(analysis)
