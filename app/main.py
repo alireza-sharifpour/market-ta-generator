@@ -16,26 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_: FastAPI):
     """
     Lifespan context manager for FastAPI application.
     Handles startup and shutdown events.
     """
     # Startup
     logger.info("Market TA Generator service is starting up...")
-    
-    # Initialize Prometheus metrics
-    instrumentator = Instrumentator(
-        should_group_status_codes=False,
-        should_ignore_untemplated=True,
-        should_respect_env_var=True,
-        should_instrument_requests_inprogress=True,
-        excluded_handlers=[".*admin.*", "/metrics"],
-        env_var_name="ENABLE_METRICS",
-        inprogress_name="inprogress",
-        inprogress_labels=True,
-    )
-    instrumentator.instrument(app).expose(app)
     logger.info("Prometheus metrics instrumentation enabled at /metrics")
     
     yield
@@ -50,6 +37,19 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Initialize Prometheus metrics (must be done before adding other middleware)
+instrumentator = Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=True,
+    should_respect_env_var=True,
+    should_instrument_requests_inprogress=True,
+    excluded_handlers=[".*admin.*", "/metrics"],
+    env_var_name="ENABLE_METRICS",
+    inprogress_name="inprogress",
+    inprogress_labels=True,
+)
+instrumentator.instrument(app).expose(app)
 
 # Add middleware
 add_ip_whitelist_middleware(app)
