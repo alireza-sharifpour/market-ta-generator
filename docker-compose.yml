@@ -8,6 +8,7 @@ volumes:
   prometheus_data:
   loki_data:
   grafana_data:
+  app_logs:
 
 services:
   app:
@@ -31,7 +32,7 @@ services:
       retries: 3
       start_period: 10s
     volumes:
-      - ./logs:/app/logs # Persist logs to host directory
+      - app_logs:/app/logs # Use named volume instead of bind mount
     logging:
       driver: "json-file"
       options:
@@ -89,7 +90,7 @@ services:
       - /var/log:/var/log:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./logs:/logs:ro # Mount persistent logs directory
+      - app_logs:/logs:ro # Mount persistent logs volume
     command: -config.file=/etc/promtail/config.yml
     networks:
       - monitoring
