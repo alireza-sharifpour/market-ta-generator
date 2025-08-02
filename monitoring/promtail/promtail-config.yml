@@ -52,7 +52,15 @@ scrape_configs:
           __path__: /logs/*.log
 
     pipeline_stages:
-      - json: {}
+      - json:
+          expressions:
+            timestamp: timestamp
+            level: level
+            logger: logger
+            message: message
+            module: module
+            function: function
+            line: line
       - timestamp:
           format: RFC3339Nano
           source: timestamp
