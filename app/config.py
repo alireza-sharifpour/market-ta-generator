@@ -89,7 +89,7 @@ WHITELISTED_IPS = os.getenv(
 ).split(",")
 
 # Cache Configuration
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 CACHE_ENABLED = os.getenv("CACHE_ENABLED", "True").lower() == "true"
 
 # Cache TTL settings by timeframe (in seconds)
