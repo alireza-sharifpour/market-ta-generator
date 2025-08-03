@@ -112,7 +112,7 @@ CACHE_TTL_SETTINGS = {
 # Cache key configuration
 CACHE_KEY_PREFIX = "market_ta"
 CACHE_PLACEHOLDERS = {
-    "current_price": "{CURRENT_PRICE_PLACEHOLDER}",
-    "price_change_24h": "{PRICE_CHANGE_24H_PLACEHOLDER}",
-    "volume_24h": "{VOLUME_24H_PLACEHOLDER}",
+    "current_price": "CURRENTPRICE",
+    "price_change_24h": "PRICECHANGE24H",
+    "volume_24h": "VOLUME24H",
 }
