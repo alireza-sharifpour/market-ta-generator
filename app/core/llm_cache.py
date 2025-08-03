@@ -219,14 +219,25 @@ class LLMCache:
             result = {}
             for key, content in analysis.items():
                 if isinstance(content, str):
+                    updated_content = content
+                    
                     # Replace current price placeholder with escaped price
-                    updated_content = content.replace(
+                    updated_content = updated_content.replace(
                         CACHE_PLACEHOLDERS["current_price"], 
                         escaped_price_str
                     )
                     
-                    # Note: We can add more placeholder replacements here in the future
-                    # For example: price_change_24h, volume_24h
+                    # TODO: Add more placeholder replacements here in the future
+                    # When implementing PRICECHANGE24H and VOLUME24H, make sure to:
+                    # 1. Format the values properly
+                    # 2. Apply escape_markdownv2() to each value before replacement
+                    # Example:
+                    # price_change_str = f"{price_change_24h:.2f}%"
+                    # escaped_change_str = escape_markdownv2(price_change_str)
+                    # updated_content = updated_content.replace(
+                    #     CACHE_PLACEHOLDERS["price_change_24h"], 
+                    #     escaped_change_str
+                    # )
                     
                     result[key] = updated_content
                 else:
