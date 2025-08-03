@@ -12,7 +12,7 @@ from pandas import DataFrame
 from app.config import CACHE_KEY_PREFIX, CACHE_PLACEHOLDERS, CACHE_TTL_SETTINGS
 from app.core.cache_service import get_cache_service
 from app.core.data_processor import prepare_llm_input_for_cache
-from app.external.llm_client import generate_combined_analysis
+from app.external.llm_client import generate_combined_analysis, escape_markdownv2
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -211,15 +211,18 @@ class LLMCache:
                     current_price_str = f"{current_price:.8f}"
                 else:
                     current_price_str = f"{current_price:.2e}"
+                
+                # Apply MarkdownV2 escaping to the price string
+                escaped_price_str = escape_markdownv2(current_price_str)
             
             # Replace placeholders in both detailed and summarized analysis
             result = {}
             for key, content in analysis.items():
                 if isinstance(content, str):
-                    # Replace current price placeholder
+                    # Replace current price placeholder with escaped price
                     updated_content = content.replace(
                         CACHE_PLACEHOLDERS["current_price"], 
-                        current_price_str
+                        escaped_price_str
                     )
                     
                     # Note: We can add more placeholder replacements here in the future
@@ -229,7 +232,7 @@ class LLMCache:
                 else:
                     result[key] = content
             
-            logger.debug(f"Replaced placeholders with current price: {current_price_str}")
+            logger.debug(f"Replaced placeholders with current price: {current_price_str} (escaped: {escaped_price_str})")
             return result
             
         except Exception as e:
