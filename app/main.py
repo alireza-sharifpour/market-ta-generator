@@ -25,9 +25,27 @@ async def lifespan(_: FastAPI):
     logger.info("Market TA Generator service is starting up...")
     logger.info("Prometheus metrics instrumentation enabled at /metrics")
     
+    # Initialize cache service
+    try:
+        from app.core.cache_service import cache_service
+        await cache_service.initialize()
+        logger.info("Cache service initialized successfully")
+    except Exception as e:
+        logger.warning(f"Failed to initialize cache service: {e}")
+        logger.info("Application will continue without caching")
+    
     yield
     # Shutdown
     logger.info("Market TA Generator service is shutting down...")
+    
+    # Close cache service
+    try:
+        from app.core.cache_service import cache_service
+        await cache_service.close()
+        logger.info("Cache service closed successfully")
+    except Exception as e:
+        logger.error(f"Error closing cache service: {e}")
+    
     await close_connections()
 
 

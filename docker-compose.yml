@@ -9,6 +9,7 @@ volumes:
   loki_data:
   grafana_data:
   app_logs:
+  redis_data:
 
 services:
   app:
@@ -45,6 +46,25 @@ services:
       - "service=market-ta-generator"
       - "version=0.1.0"
       - "logging=enabled"
+    networks:
+      - monitoring
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     networks:
       - monitoring
 

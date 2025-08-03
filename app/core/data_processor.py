@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Union, cast
 
 import numpy as np
 import pandas as pd
-import pandas_ta
+import pandas_ta  # type: ignore  # noqa: F401  # Required for DataFrame.ta extension
 from pandas import DataFrame
 
 from app.config import INDICATOR_SETTINGS, SR_SETTINGS  # Import settings
@@ -1069,6 +1069,291 @@ def prepare_llm_input_phase2(
             output += "- No support levels below current price (all identified levels are above current price).\n"
     else:  # If "support" key not in sr_levels or sr_levels["support"] is an empty list
         output += "\n### Support Levels (Descending)\n"  # Still add the heading
+        output += "- No significant support levels detected with current settings.\n"
+
+    return output
+
+
+def prepare_llm_input_for_cache(
+    df_with_indicators: DataFrame,
+    sr_levels: Dict[str, List[float]],
+) -> str:
+    """
+    Extract key information from the indicator-enriched DataFrame and S/R levels
+    to prepare a structured input for caching. This version EXCLUDES current price data
+    to ensure cache key stability.
+
+    Args:
+        df_with_indicators: DataFrame with OHLCV data and calculated technical indicators
+        sr_levels: Dictionary with lists of support and resistance levels
+
+    Returns:
+        Structured string with key market data, indicator values, trends, and S/R levels
+        suitable for LLM caching (without current price data).
+
+    Raises:
+        ValueError: If the input DataFrame is empty or missing critical indicators
+    """
+    if df_with_indicators.empty:
+        raise ValueError("Input DataFrame is empty")
+
+    # Get the most recent data point (latest values)
+    latest = df_with_indicators.iloc[-1]
+
+    # Get the previous data point for trend comparison
+    prev = df_with_indicators.iloc[-2] if len(df_with_indicators) > 1 else None
+
+    # Extract OHLCV data for the latest period
+    latest_date = df_with_indicators.index[-1]
+    date_str = (
+        latest_date.strftime("%Y-%m-%d %H:%M")
+        if hasattr(latest_date, "strftime")
+        else str(latest_date)
+    )
+
+    # Prepare structured output
+    output = "# MARKET DATA ANALYSIS\n\n"
+
+    # NOTE: Current price section is EXCLUDED for cache stability
+
+    # OHLCV summary
+    output += f"## Latest OHLCV Data ({date_str})\n"
+    output += f"- Open: {format_price_smart(latest['Open'])}\n"
+    output += f"- High: {format_price_smart(latest['High'])}\n"
+    output += f"- Low: {format_price_smart(latest['Low'])}\n"
+    output += f"- Close: {format_price_smart(latest['Close'])}\n"
+    output += f"- Volume: {latest['Volume']:.2f}\n\n"
+
+    # Key statistics
+    output += "## Market Statistics\n"
+    output += f"- Period High (last {len(df_with_indicators)} periods): {format_price_smart(df_with_indicators['High'].max())}\n"
+    output += f"- Period Low (last {len(df_with_indicators)} periods): {format_price_smart(df_with_indicators['Low'].min())}\n"
+
+    # Calculate recent price change and volatility
+    if len(df_with_indicators) > 1:
+        price_change = (
+            (latest["Close"] - df_with_indicators.iloc[-2]["Close"])
+            / df_with_indicators.iloc[-2]["Close"]
+            * 100
+        )
+        output += f"- Last Period Change: {price_change:.2f}%\n"
+
+        # Calculate 5-period volatility (standard deviation of returns)
+        if len(df_with_indicators) >= 5:
+            volatility = df_with_indicators["Close"].pct_change().iloc[-5:].std() * 100
+            output += f"- Recent Volatility (5-period): {volatility:.2f}%\n\n"
+        else:
+            output += "\n"
+    else:
+        output += "\n"
+
+    # Technical Indicators section (same as original)
+    output += "## Technical Indicators\n"
+
+    # Check for and add EMA values
+    ema_periods = [
+        INDICATOR_SETTINGS["ema_short"],
+        INDICATOR_SETTINGS["ema_medium"],
+        INDICATOR_SETTINGS["ema_long"],
+    ]
+
+    ema_columns = []
+    for period in ema_periods:
+        ema_col = f"EMA_{period}"
+        if ema_col in df_with_indicators.columns:
+            ema_columns.append(ema_col)
+
+    if ema_columns:
+        output += "### Moving Averages\n"
+        for col in sorted(ema_columns, key=lambda x: int(x.split("_")[1])):
+            period_str = col.split("_")[1]
+            value = np.asarray(latest[col]).item()
+
+            trend = ""
+            if prev is not None:
+                current_val = np.asarray(latest[col]).item()
+                prev_val = np.asarray(prev[col]).item()
+
+                if current_val > prev_val:
+                    trend = " (Rising)"
+                elif current_val < prev_val:
+                    trend = " (Falling)"
+                else:
+                    trend = " (Neutral)"
+            output += f"- EMA_{period_str}: {format_price_smart(value)}{trend}\n"
+
+    # RSI with period
+    rsi_period = INDICATOR_SETTINGS["rsi_period"]
+    rsi_col = f"RSI_{rsi_period}"
+    if rsi_col in df_with_indicators.columns:
+        output += "\n### Momentum Indicators\n"
+        rsi_value = float(latest[rsi_col])
+        rsi_trend = ""
+        if prev is not None:
+            current_rsi = float(latest[rsi_col])
+            prev_rsi = float(prev[rsi_col])
+            if current_rsi > prev_rsi:
+                rsi_trend = " (Rising)"
+            elif current_rsi < prev_rsi:
+                rsi_trend = " (Falling)"
+            else:
+                rsi_trend = " (Neutral)"
+
+        rsi_interpretation = ""
+        if rsi_value >= 70:
+            rsi_interpretation = " - Potentially Overbought"
+        elif rsi_value <= 30:
+            rsi_interpretation = " - Potentially Oversold"
+
+        output += (
+            f"- RSI_{rsi_period}: {rsi_value:.2f}{rsi_trend}{rsi_interpretation}\n"
+        )
+
+    # MFI with period
+    mfi_period = INDICATOR_SETTINGS["mfi_period"]
+    mfi_col = f"MFI_{mfi_period}"
+    if mfi_col in df_with_indicators.columns:
+        mfi_value = float(latest[mfi_col])
+        mfi_trend = ""
+        if prev is not None:
+            current_mfi = float(latest[mfi_col])
+            prev_mfi = float(prev[mfi_col])
+            if current_mfi > prev_mfi:
+                mfi_trend = " (Rising)"
+            elif current_mfi < prev_mfi:
+                mfi_trend = " (Falling)"
+            else:
+                mfi_trend = " (Neutral)"
+
+        mfi_interpretation = ""
+        if mfi_value >= 80:
+            mfi_interpretation = " - Potentially Overbought"
+        elif mfi_value <= 20:
+            mfi_interpretation = " - Potentially Oversold"
+
+        output += (
+            f"- MFI_{mfi_period}: {mfi_value:.2f}{mfi_trend}{mfi_interpretation}\n"
+        )
+
+    # ADX and Directional Indicators
+    adx_period = INDICATOR_SETTINGS["adx_period"]
+    adx_col = f"ADX_{adx_period}"
+    di_plus_col = f"DMP_{adx_period}"
+    di_minus_col = f"DMN_{adx_period}"
+
+    if all(
+        col in df_with_indicators.columns
+        for col in [adx_col, di_plus_col, di_minus_col]
+    ):
+        output += "\n### Trend Strength Indicators\n"
+
+        adx_value = float(latest[adx_col])
+        di_plus_value = float(latest[di_plus_col])
+        di_minus_value = float(latest[di_minus_col])
+
+        trend_strength = ""
+        if adx_value >= 50:
+            trend_strength = " - Very Strong Trend"
+        elif adx_value >= 25:
+            trend_strength = " - Strong Trend"
+        elif adx_value >= 20:
+            trend_strength = " - Moderate Trend"
+        else:
+            trend_strength = " - Weak/No Trend"
+
+        output += f"- ADX_{adx_period}: {adx_value:.2f}{trend_strength}\n"
+        output += f"- DI+_{adx_period}: {di_plus_value:.2f}\n"
+        output += f"- DI-_{adx_period}: {di_minus_value:.2f}\n"
+
+        if di_plus_value > di_minus_value:
+            output += "- Directional Movement: Bullish (DI+ > DI-)\n"
+        elif di_minus_value > di_plus_value:
+            output += "- Directional Movement: Bearish (DI- > DI+)\n"
+        else:
+            output += "- Directional Movement: Neutral (DI+ ≈ DI-)\n"
+
+    # Bollinger Bands
+    bb_period = INDICATOR_SETTINGS["bb_period"]
+    bb_std = INDICATOR_SETTINGS["bb_std_dev"]
+    bb_upper_col = f"BBU_{bb_period}_{bb_std}"
+    bb_middle_col = f"BBM_{bb_period}_{bb_std}"
+    bb_lower_col = f"BBL_{bb_period}_{bb_std}"
+
+    if all(
+        col in df_with_indicators.columns
+        for col in [bb_upper_col, bb_middle_col, bb_lower_col]
+    ):
+        output += "\n### Volatility Indicators (Bollinger Bands)\n"
+
+        bb_upper = float(latest[bb_upper_col])
+        bb_middle = float(latest[bb_middle_col])
+        bb_lower = float(latest[bb_lower_col])
+        current_close = latest["Close"]
+
+        output += (
+            f"- BB Upper ({bb_period}, {bb_std}): {format_price_smart(bb_upper)}\n"
+        )
+        output += (
+            f"- BB Middle ({bb_period}, {bb_std}): {format_price_smart(bb_middle)}\n"
+        )
+        output += (
+            f"- BB Lower ({bb_period}, {bb_std}): {format_price_smart(bb_lower)}\n"
+        )
+
+        # Position relative to bands
+        if current_close >= bb_upper:
+            position = "Above Upper Band - Potentially Overbought"
+        elif current_close <= bb_lower:
+            position = "Below Lower Band - Potentially Oversold"
+        elif current_close >= bb_middle:
+            position = "Above Middle Band - Upper Half"
+        else:
+            position = "Below Middle Band - Lower Half"
+
+        output += f"- Current Position: {position}\n"
+
+        # Band width
+        band_width = ((bb_upper - bb_lower) / bb_middle) * 100
+        output += f"- Band Width: {band_width:.2f}% (Volatility measure)\n"
+
+    # Support and Resistance Levels
+    output += "\n## Support and Resistance Levels\n"
+
+    # Use last close price for reference (since we exclude current price)
+    current_price = latest["Close"]
+    output += f"*Using last close price: {format_price_smart(current_price)}*\n\n"
+
+    # Process resistance levels (sort in ascending order)
+    if "resistance" in sr_levels and sr_levels["resistance"]:
+        output += "### Resistance Levels (Ascending)\n"
+        resistance_levels = sorted(
+            [level for level in sr_levels["resistance"] if level > current_price]
+        )
+        if resistance_levels:
+            for level in resistance_levels:
+                distance = ((level - current_price) / current_price) * 100
+                output += f"- {format_price_smart(level)} ({distance:.2f}% above current price)\n"
+        else:
+            output += "- No resistance levels detected above current price with current settings.\n"
+    else:
+        output += "### Resistance Levels (Ascending)\n"
+        output += "- No significant resistance levels detected with current settings.\n"
+
+    # Process support levels (sort in descending order)
+    if "support" in sr_levels and sr_levels["support"]:
+        output += "\n### Support Levels (Descending)\n"
+        support_levels = sorted(
+            [level for level in sr_levels["support"] if level < current_price],
+            reverse=True,
+        )
+        if support_levels:
+            for level in support_levels:
+                distance = ((current_price - level) / current_price) * 100
+                output += f"- {format_price_smart(level)} ({distance:.2f}% below current price)\n"
+        else:
+            output += "- No support levels detected below current price with current settings.\n"
+    else:
+        output += "\n### Support Levels (Descending)\n"
         output += "- No significant support levels detected with current settings.\n"
 
     return output

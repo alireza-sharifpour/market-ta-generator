@@ -550,7 +550,7 @@ async def generate_summarized_analysis(
 
 
 async def generate_combined_analysis(
-    pair: str, structured_data: str, timeframe: Optional[str] = None
+    pair: str, structured_data: str, timeframe: Optional[str] = None, use_placeholders: bool = False
 ) -> Dict[str, str]:
     """
     Generate both detailed and summarized analysis in a single LLM call.
@@ -560,6 +560,7 @@ async def generate_combined_analysis(
         structured_data: A string containing formatted OHLCV data,
                          technical indicators, and S/R levels.
         timeframe: The timeframe of the data (e.g., 'day1', 'hour4')
+        use_placeholders: If True, instruct LLM to use placeholders for current price
 
     Returns:
         Dictionary containing both analyses:
@@ -624,6 +625,17 @@ async def generate_combined_analysis(
         ```
         {structured_data}
         ```
+
+        {"**IMPORTANT - Price Placeholder Instructions:**" if use_placeholders else ""}
+        {"""For current price references, use exactly {CURRENT_PRICE_PLACEHOLDER} instead of actual price values.
+        This placeholder will be replaced with the actual current price after generation.
+        
+        Examples:
+        - قیمت لحظه‌ای: {CURRENT_PRICE_PLACEHOLDER}
+        - قیمت فعلی ({CURRENT_PRICE_PLACEHOLDER}) در محدوده...
+        - Instead of writing "قیمت فعلی (105000)" write "قیمت فعلی ({CURRENT_PRICE_PLACEHOLDER})"
+        
+        CRITICAL: Always use {CURRENT_PRICE_PLACEHOLDER} for any current price reference.""" if use_placeholders else ""}
 
         **Output Requirements:**
         1. Language: **Persian (Farsi) only**

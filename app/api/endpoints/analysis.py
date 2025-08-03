@@ -1,4 +1,5 @@
 import logging
+from typing import Dict, Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -61,3 +62,28 @@ async def analyze_pair(request: AnalysisRequest):
         raise HTTPException(
             status_code=500, detail=f"An error occurred during analysis: {str(e)}"
         )
+
+
+@router.get("/cache-stats")
+async def get_cache_stats() -> Dict[str, Any]:
+    """
+    Endpoint for retrieving cache statistics and performance metrics.
+    
+    Returns:
+        Dictionary containing cache statistics including hit rates, memory usage, etc.
+    """
+    try:
+        from app.core.llm_cache import llm_cache
+        stats = await llm_cache.get_cache_stats()
+        return {
+            "status": "success",
+            "cache_stats": stats,
+            "message": "Cache statistics retrieved successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving cache stats: {str(e)}")
+        return {
+            "status": "error",
+            "cache_stats": {"enabled": False, "connected": False},
+            "message": f"Failed to retrieve cache stats: {str(e)}"
+        }

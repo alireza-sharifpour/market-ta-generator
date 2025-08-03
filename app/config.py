@@ -87,3 +87,32 @@ WHITELIST_ENABLED = os.getenv("WHITELIST_ENABLED", "True").lower() == "true"
 WHITELISTED_IPS = os.getenv(
     "WHITELISTED_IPS", "127.0.0.1,154.90.55.18,10.72.24.67,4.210.246.79"
 ).split(",")
+
+# Cache Configuration
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+CACHE_ENABLED = os.getenv("CACHE_ENABLED", "True").lower() == "true"
+
+# Cache TTL settings by timeframe (in seconds)
+# Optimized to align with candle completion cycles for maximum efficiency
+CACHE_TTL_SETTINGS = {
+    "minute1": 30,      # 30 seconds (50% of 1-minute candle cycle)
+    "minute5": 120,     # 2 minutes (40% of 5-minute candle cycle)
+    "minute15": 600,    # 10 minutes (67% of 15-minute candle cycle)
+    "minute30": 1200,   # 20 minutes (67% of 30-minute candle cycle)
+    "hour1": 1800,      # 30 minutes (50% of 1-hour candle cycle)
+    "hour4": 7200,      # 2 hours (50% of 4-hour candle cycle)
+    "hour8": 14400,     # 4 hours (50% of 8-hour candle cycle)
+    "hour12": 21600,    # 6 hours (50% of 12-hour candle cycle)
+    "day1": 21600,      # 6 hours (25% of 24-hour candle cycle)
+    "week1": 172800,    # 2 days (29% of 7-day candle cycle)
+    "month1": 604800,   # 7 days (23% of 30-day candle cycle)
+    "default": 600,     # 10 minutes
+}
+
+# Cache key configuration
+CACHE_KEY_PREFIX = "market_ta"
+CACHE_PLACEHOLDERS = {
+    "current_price": "{CURRENT_PRICE_PLACEHOLDER}",
+    "price_change_24h": "{PRICE_CHANGE_24H_PLACEHOLDER}",
+    "volume_24h": "{VOLUME_24H_PLACEHOLDER}",
+}

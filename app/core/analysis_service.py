@@ -161,19 +161,35 @@ async def run_phase2_analysis(
             logger.error(error_msg, exc_info=True)
             return {"status": "error", "message": error_msg}
 
-        # Step 6: Generate both detailed and summarized analysis using LLM in a single call
-        logger.info("Generating combined analysis using LLM (Phase 2 - optimized)")
+        # Step 6: Generate analysis with caching (Phase 2 - with cache optimization)
+        logger.info("Generating combined analysis using LLM with caching")
         try:
-            combined_analysis = await generate_combined_analysis(
-                pair, structured_llm_input, timeframe=timeframe_to_use
+            # Import LLM cache
+            from app.core.llm_cache import llm_cache
+            
+            # Extract current price for placeholder replacement
+            current_price = None
+            if current_price_data:
+                current_price = current_price_data.get('ticker', {}).get('latest')
+                if current_price:
+                    current_price = float(current_price)
+
+            # Use cache to get or generate analysis
+            combined_analysis = await llm_cache.get_or_generate(
+                pair=pair,
+                df_with_indicators=df_with_indicators,
+                sr_levels=sr_levels,
+                current_price=current_price,
+                timeframe=timeframe_to_use
             )
+            
             analysis_text = combined_analysis["detailed_analysis"]
             analysis_summarized = combined_analysis["summarized_analysis"]
             logger.info(
-                "Successfully generated both detailed and summarized analysis in single LLM call"
+                "Successfully generated/retrieved both detailed and summarized analysis with caching"
             )
         except Exception as e:
-            error_msg = f"Failed to generate combined analysis with LLM: {str(e)}"
+            error_msg = f"Failed to generate combined analysis with LLM cache: {str(e)}"
             logger.error(
                 error_msg, exc_info=True
             )  # exc_info for more details on LLM errors
