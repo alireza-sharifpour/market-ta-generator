@@ -145,33 +145,31 @@ async def run_phase2_analysis(
         except Exception as e:
             logger.warning(f"Unexpected error fetching current price: {str(e)}")
 
-        # Step 6: Check if S/R reclassification is needed based on price movement
-        logger.info("Checking if S/R reclassification is needed")
+        # Step 6: Always reclassify S/R levels if current price is available
+        logger.info("Reclassifying S/R levels with current price")
         if current_price_data:
             current_price = current_price_data.get("ticker", {}).get("latest")
             if current_price:
                 current_price = float(current_price)
                 original_close_price = float(df_with_indicators["Close"].iloc[-1])
 
-                from app.core.data_processor import (
-                    reclassify_cached_sr_levels,
-                    should_reclassify_sr_levels,
+                from app.core.data_processor import reclassify_cached_sr_levels
+
+                logger.info(
+                    f"Reclassifying S/R levels: original price {original_close_price:.4f} -> "
+                    f"current price {current_price:.4f}"
                 )
 
-                if should_reclassify_sr_levels(original_close_price, current_price):
-                    logger.info(
-                        f"Significant price movement detected ({original_close_price:.4f} -> {current_price:.4f}). "
-                        f"Reclassifying S/R levels before cache lookup to ensure consistency."
-                    )
-                    sr_levels = reclassify_cached_sr_levels(sr_levels, current_price)
-                    logger.info(
-                        f"S/R levels reclassified: {len(sr_levels['support'])} support, "
-                        f"{len(sr_levels['resistance'])} resistance"
-                    )
-                else:
-                    logger.debug(
-                        "No significant price movement, using original S/R levels"
-                    )
+                sr_levels = reclassify_cached_sr_levels(sr_levels, current_price)
+
+                logger.info(
+                    f"S/R levels reclassified: {len(sr_levels['support'])} support, "
+                    f"{len(sr_levels['resistance'])} resistance levels"
+                )
+            else:
+                logger.debug("Current price not available, using original S/R levels")
+        else:
+            logger.debug("Current price data not available, using original S/R levels")
 
         # Step 7: Prepare structured data for LLM
         logger.info("Preparing structured data for LLM (Phase 2)")
