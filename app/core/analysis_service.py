@@ -145,7 +145,35 @@ async def run_phase2_analysis(
         except Exception as e:
             logger.warning(f"Unexpected error fetching current price: {str(e)}")
 
-        # Step 6: Prepare structured data for LLM
+        # Step 6: Check if S/R reclassification is needed based on price movement
+        logger.info("Checking if S/R reclassification is needed")
+        if current_price_data:
+            current_price = current_price_data.get("ticker", {}).get("latest")
+            if current_price:
+                current_price = float(current_price)
+                original_close_price = float(df_with_indicators["Close"].iloc[-1])
+
+                from app.core.data_processor import (
+                    reclassify_cached_sr_levels,
+                    should_reclassify_sr_levels,
+                )
+
+                if should_reclassify_sr_levels(original_close_price, current_price):
+                    logger.info(
+                        f"Significant price movement detected ({original_close_price:.4f} -> {current_price:.4f}). "
+                        f"Reclassifying S/R levels before cache lookup to ensure consistency."
+                    )
+                    sr_levels = reclassify_cached_sr_levels(sr_levels, current_price)
+                    logger.info(
+                        f"S/R levels reclassified: {len(sr_levels['support'])} support, "
+                        f"{len(sr_levels['resistance'])} resistance"
+                    )
+                else:
+                    logger.debug(
+                        "No significant price movement, using original S/R levels"
+                    )
+
+        # Step 7: Prepare structured data for LLM
         logger.info("Preparing structured data for LLM (Phase 2)")
         try:
             structured_llm_input = prepare_llm_input_phase2(
@@ -161,28 +189,28 @@ async def run_phase2_analysis(
             logger.error(error_msg, exc_info=True)
             return {"status": "error", "message": error_msg}
 
-        # Step 6: Generate analysis with caching (Phase 2 - with cache optimization)
+        # Step 8: Generate analysis with caching (Phase 2 - with cache optimization)
         logger.info("Generating combined analysis using LLM with caching")
         try:
             # Import LLM cache
             from app.core.llm_cache import llm_cache
-            
-            # Extract current price for placeholder replacement
+
+            # Extract current price for placeholder replacement (already extracted in reclassification step)
             current_price = None
             if current_price_data:
-                current_price = current_price_data.get('ticker', {}).get('latest')
+                current_price = current_price_data.get("ticker", {}).get("latest")
                 if current_price:
                     current_price = float(current_price)
 
-            # Use cache to get or generate analysis
-            combined_analysis, final_sr_levels = await llm_cache.get_or_generate(
+            # Use cache to get or generate analysis (with potentially reclassified S/R levels)
+            combined_analysis = await llm_cache.get_or_generate(
                 pair=pair,
                 df_with_indicators=df_with_indicators,
-                sr_levels=sr_levels,
+                sr_levels=sr_levels,  # These may have been reclassified based on price movement
                 current_price=current_price,
-                timeframe=timeframe_to_use
+                timeframe=timeframe_to_use,
             )
-            
+
             analysis_text = combined_analysis["detailed_analysis"]
             analysis_summarized = combined_analysis["summarized_analysis"]
             logger.info(
@@ -195,21 +223,21 @@ async def run_phase2_analysis(
             )  # exc_info for more details on LLM errors
             return {"status": "error", "message": error_msg}
 
-        # Step 7: Generate chart with indicators (Phase 3)
+        # Step 9: Generate chart with indicators (Phase 3)
         logger.info("Generating OHLCV chart with indicators")
         chart_image_base64 = None
         try:
             # Use the new filtered chart generation which will automatically
             # show only EMA50 and EMA9 while keeping all indicators for LLM analysis
-            # Also pass the final S/R levels (potentially reclassified) for visualization
+            # Also pass the calculated S/R levels for visualization
             chart_image_base64 = generate_ohlcv_chart(
                 df_with_indicators,
                 indicators_to_plot=None,  # Let the chart generator use filtered indicators
-                sr_levels=final_sr_levels,  # Pass the final S/R levels (potentially reclassified)
+                sr_levels=sr_levels,  # Pass the calculated S/R levels
                 use_filtered_indicators=True,  # Use only EMA50 and EMA9
             )
             logger.info(
-                "Successfully generated chart with filtered indicators (EMA50 and EMA9) and potentially reclassified S/R levels"
+                "Successfully generated chart with filtered indicators (EMA50 and EMA9) and S/R levels"
             )
         except Exception as e:
             # Chart generation is not critical - log the error but continue
