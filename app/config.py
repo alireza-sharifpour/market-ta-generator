@@ -116,3 +116,7 @@ CACHE_PLACEHOLDERS = {
     "price_change_24h": "PRICECHANGE24H",
     "volume_24h": "VOLUME24H",
 }
+
+# S/R Reclassification Configuration
+# Threshold for triggering S/R reclassification based on price movement
+SR_RECLASSIFICATION_THRESHOLD = 0.005  # 0.5% price movement triggers reclassification

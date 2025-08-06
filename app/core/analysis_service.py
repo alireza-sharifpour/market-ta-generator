@@ -175,7 +175,7 @@ async def run_phase2_analysis(
                     current_price = float(current_price)
 
             # Use cache to get or generate analysis
-            combined_analysis = await llm_cache.get_or_generate(
+            combined_analysis, final_sr_levels = await llm_cache.get_or_generate(
                 pair=pair,
                 df_with_indicators=df_with_indicators,
                 sr_levels=sr_levels,
@@ -201,15 +201,15 @@ async def run_phase2_analysis(
         try:
             # Use the new filtered chart generation which will automatically
             # show only EMA50 and EMA9 while keeping all indicators for LLM analysis
-            # Also pass the calculated S/R levels for visualization
+            # Also pass the final S/R levels (potentially reclassified) for visualization
             chart_image_base64 = generate_ohlcv_chart(
                 df_with_indicators,
                 indicators_to_plot=None,  # Let the chart generator use filtered indicators
-                sr_levels=sr_levels,  # Pass the calculated S/R levels
+                sr_levels=final_sr_levels,  # Pass the final S/R levels (potentially reclassified)
                 use_filtered_indicators=True,  # Use only EMA50 and EMA9
             )
             logger.info(
-                "Successfully generated chart with filtered indicators (EMA50 and EMA9) and S/R levels"
+                "Successfully generated chart with filtered indicators (EMA50 and EMA9) and potentially reclassified S/R levels"
             )
         except Exception as e:
             # Chart generation is not critical - log the error but continue

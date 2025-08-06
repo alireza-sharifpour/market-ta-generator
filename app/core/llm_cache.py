@@ -269,7 +269,7 @@ class LLMCache:
         sr_levels: Dict[str, List[float]],
         current_price: Optional[float],
         timeframe: str
-    ) -> Dict[str, str]:
+    ) -> tuple[Dict[str, str], Dict[str, List[float]]]:
         """
         Get analysis from cache or generate new one with LLM.
         
@@ -281,7 +281,9 @@ class LLMCache:
             timeframe: Trading timeframe
             
         Returns:
-            Dictionary with detailed_analysis and summarized_analysis
+            Tuple of (analysis_dict, sr_levels_dict) where:
+            - analysis_dict: Dictionary with detailed_analysis and summarized_analysis
+            - sr_levels_dict: Dictionary with potentially reclassified S/R levels
         """
         try:
             # Generate cache key
@@ -289,18 +291,48 @@ class LLMCache:
             
             # Try to get from cache
             cache_service = await self._get_cache_service()
-            cached_analysis = await cache_service.get(cache_key)
+            cached_data = await cache_service.get(cache_key)
             
-            if cached_analysis:
+            if cached_data:
                 logger.info(f"Cache HIT for {pair} ({timeframe})")
+                
+                # Handle both old and new cache format for backward compatibility
+                if "detailed_analysis" in cached_data and "summarized_analysis" in cached_data:
+                    # New format with expanded data
+                    cached_analysis = {
+                        "detailed_analysis": cached_data["detailed_analysis"],
+                        "summarized_analysis": cached_data["summarized_analysis"]
+                    }
+                    cached_sr_levels = cached_data.get("sr_levels", sr_levels)
+                    original_close_price = cached_data.get("original_close_price")
+                    
+                    # Check if S/R reclassification is needed
+                    final_sr_levels = cached_sr_levels
+                    if current_price and original_close_price:
+                        from app.core.data_processor import should_reclassify_sr_levels, reclassify_cached_sr_levels
+                        
+                        if should_reclassify_sr_levels(original_close_price, current_price):
+                            logger.info(f"Reclassifying S/R levels due to price movement: {original_close_price:.4f} -> {current_price:.4f}")
+                            final_sr_levels = reclassify_cached_sr_levels(cached_sr_levels, current_price)
+                        else:
+                            logger.debug("No significant price movement, using cached S/R levels")
+                    
+                else:
+                    # Backward compatibility: old cache format (just analysis text)
+                    cached_analysis = cached_data
+                    final_sr_levels = sr_levels  # Use current S/R levels
+                    logger.debug("Using legacy cache format")
                 
                 # Replace placeholders with current price
                 analysis = self.replace_price_placeholders(cached_analysis, current_price)
                 
-                return analysis
+                return analysis, final_sr_levels
             
             # Cache miss - generate new analysis
             logger.info(f"Cache MISS for {pair} ({timeframe}) - generating new analysis")
+            
+            # Get original close price for storage
+            original_close_price = float(df_with_indicators["Close"].iloc[-1])
             
             # Prepare LLM input WITHOUT current price for cache consistency
             structured_llm_input = prepare_llm_input_for_cache(df_with_indicators, sr_levels)
@@ -310,23 +342,32 @@ class LLMCache:
                 pair, structured_llm_input, timeframe=timeframe, use_placeholders=True
             )
             
-            # Cache the analysis with placeholders
-            ttl = self.get_cache_ttl(timeframe)
-            await cache_service.set(cache_key, analysis, ttl)
+            # Create expanded cache data structure
+            cache_data = {
+                "detailed_analysis": analysis["detailed_analysis"],
+                "summarized_analysis": analysis["summarized_analysis"],
+                "sr_levels": sr_levels,
+                "original_close_price": original_close_price
+            }
             
-            logger.info(f"Cached new analysis for {pair} ({timeframe}) with TTL {ttl}s")
+            # Cache the expanded data
+            ttl = self.get_cache_ttl(timeframe)
+            await cache_service.set(cache_key, cache_data, ttl)
+            
+            logger.info(f"Cached new analysis with S/R data for {pair} ({timeframe}) with TTL {ttl}s")
             
             # Replace placeholders with current price before returning
             final_analysis = self.replace_price_placeholders(analysis, current_price)
             
-            return final_analysis
+            return final_analysis, sr_levels
             
         except Exception as e:
             logger.error(f"Error in get_or_generate for {pair} ({timeframe}): {e}")
             # Fallback to direct LLM generation without cache
-            return await self._generate_without_cache(
+            fallback_analysis = await self._generate_without_cache(
                 pair, df_with_indicators, sr_levels, current_price, timeframe
             )
+            return fallback_analysis, sr_levels
     
     async def _generate_without_cache(
         self,

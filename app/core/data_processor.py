@@ -678,6 +678,100 @@ def _reclassify_levels(
     return final_resistance, final_support
 
 
+def should_reclassify_sr_levels(
+    original_price: float, 
+    current_price: float, 
+    threshold: Optional[float] = None
+) -> bool:
+    """
+    Check if S/R levels need reclassification based on price movement.
+    
+    Args:
+        original_price: Price used for original S/R calculation
+        current_price: Current market price
+        threshold: Price movement threshold (defaults to config value)
+        
+    Returns:
+        True if reclassification needed, False otherwise
+    """
+    from app.config import SR_RECLASSIFICATION_THRESHOLD
+    
+    if threshold is None:
+        threshold = SR_RECLASSIFICATION_THRESHOLD
+    
+    if original_price <= 0:
+        logger.warning(f"Invalid original price: {original_price}")
+        return False
+        
+    price_change_pct = abs((current_price - original_price) / original_price)
+    
+    if price_change_pct > threshold:
+        logger.info(
+            f"Significant price movement detected: {price_change_pct:.2%} "
+            f"(threshold: {threshold:.2%}). S/R reclassification needed."
+        )
+        return True
+    
+    return False
+
+
+def reclassify_cached_sr_levels(
+    cached_sr_levels: Dict[str, List[float]], 
+    current_price: float
+) -> Dict[str, List[float]]:
+    """
+    Reclassify cached S/R levels using current price.
+    
+    Args:
+        cached_sr_levels: Dictionary with 'support' and 'resistance' level lists
+        current_price: Current market price for reclassification
+        
+    Returns:
+        Dictionary with reclassified S/R levels
+        
+    Raises:
+        ValueError: If cached S/R levels are invalid
+    """
+    try:
+        if not cached_sr_levels or not isinstance(cached_sr_levels, dict):
+            raise ValueError("Invalid cached S/R levels format")
+            
+        # Get original levels
+        original_resistance = cached_sr_levels.get("resistance", [])
+        original_support = cached_sr_levels.get("support", [])
+        
+        if not original_resistance and not original_support:
+            logger.warning("No S/R levels found in cache to reclassify")
+            return cached_sr_levels
+        
+        # Convert to format expected by _reclassify_levels function
+        # _reclassify_levels expects (price, importance) tuples, but we only have prices
+        resistance_tuples = [(price, 1.0) for price in original_resistance]
+        support_tuples = [(price, 1.0) for price in original_support]
+        
+        # Use existing reclassification logic
+        reclassified_resistance, reclassified_support = _reclassify_levels(
+            resistance_tuples, support_tuples, current_price
+        )
+        
+        result = {
+            "resistance": reclassified_resistance,
+            "support": reclassified_support,
+        }
+        
+        logger.info(
+            f"Reclassified S/R levels with current price {current_price:.4f}: "
+            f"{len(result['resistance'])} resistance, {len(result['support'])} support"
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error reclassifying S/R levels: {e}")
+        # Return original levels on error to avoid breaking the analysis
+        return cached_sr_levels
+
+
 def prepare_llm_input_phase2(
     df_with_indicators: DataFrame,
     sr_levels: Dict[str, List[float]],
