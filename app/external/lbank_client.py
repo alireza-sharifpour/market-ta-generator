@@ -18,10 +18,59 @@ from app.config import (
     LBANK_API_SECRET,
     LBANK_KLINE_ENDPOINT,
 )
-from app.core.connection_manager import get_http_client
+# from app.core.connection_manager import get_http_client  # Using dedicated LBank client now
+
+# Dedicated HTTP client for LBank API with optimized settings
+_lbank_client: Optional[httpx.AsyncClient] = None
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+async def _get_lbank_client() -> httpx.AsyncClient:
+    """Get or create optimized HTTP client specifically for LBank API."""
+    global _lbank_client
+    
+    if _lbank_client is None or _lbank_client.is_closed:
+        # Optimized connection limits for LBank API
+        limits = httpx.Limits(
+            max_keepalive_connections=15,  # Moderate for LBank's capacity
+            max_connections=50,            # Reasonable for concurrent requests
+            keepalive_expiry=300.0         # 5 minutes keepalive for API efficiency
+        )
+
+        # LBank-optimized timeout settings
+        timeout = httpx.Timeout(
+            connect=10.0,    # Fast connect failure detection  
+            read=45.0,       # Generous for 200 OHLCV records
+            write=15.0,      # Adequate for auth signatures
+            pool=8.0         # Quick pool acquisition
+        )
+
+        _lbank_client = httpx.AsyncClient(
+            limits=limits,
+            timeout=timeout,
+            http2=False,        # Disable HTTP/2 for better compatibility with APIs
+            follow_redirects=True,
+            verify=True,
+            headers={
+                "User-Agent": "Market-TA-Generator/1.0",  # Identify your app
+                "Connection": "keep-alive",               # Explicit keepalive
+                "Accept-Encoding": "gzip, deflate"       # Enable compression
+            }
+        )
+        
+        logger.info("Created optimized HTTP client for LBank API")
+    
+    return _lbank_client
+
+
+async def _close_lbank_client():
+    """Close the dedicated LBank HTTP client."""
+    global _lbank_client
+    if _lbank_client and not _lbank_client.is_closed:
+        await _lbank_client.aclose()
+        logger.info("Closed LBank HTTP client")
 
 
 class LBankAPIError(Exception):
@@ -256,12 +305,12 @@ async def fetch_ohlcv(
     logger.info(f"Headers: {headers}")
 
     try:
-        # Make the API request with retry logic
+        # Make the API request with optimized LBank client
         async def make_request():
-            client = await get_http_client()
+            client = await _get_lbank_client()
             return await client.get(url, params=params, headers=headers)
         
-        response = await _retry_with_backoff(make_request, max_retries=3, base_delay=1.0)
+        response = await _retry_with_backoff(make_request, max_retries=1, base_delay=2.0)
 
         # Check if the request was successful
         if response.status_code != 200:
@@ -395,12 +444,12 @@ async def fetch_current_price(pair: str) -> Dict[str, Any]:
     logger.info(f"Making request to URL: {url}")
 
     try:
-        # Make the API request with retry logic
+        # Make the API request with optimized LBank client
         async def make_request():
-            client = await get_http_client()
+            client = await _get_lbank_client()
             return await client.get(url, params=params, headers=headers)
         
-        response = await _retry_with_backoff(make_request, max_retries=3, base_delay=1.0)
+        response = await _retry_with_backoff(make_request, max_retries=1, base_delay=2.0)
 
         # Check if the request was successful
         if response.status_code != 200:
