@@ -24,28 +24,30 @@ async def lifespan(_: FastAPI):
     # Startup
     logger.info("Market TA Generator service is starting up...")
     logger.info("Prometheus metrics instrumentation enabled at /metrics")
-    
+
     # Initialize cache service
     try:
         from app.core.cache_service import cache_service
+
         await cache_service.initialize()
         logger.info("Cache service initialized successfully")
     except Exception as e:
         logger.warning(f"Failed to initialize cache service: {e}")
         logger.info("Application will continue without caching")
-    
+
     yield
     # Shutdown
     logger.info("Market TA Generator service is shutting down...")
-    
+
     # Close cache service
     try:
         from app.core.cache_service import cache_service
+
         await cache_service.close()
         logger.info("Cache service closed successfully")
     except Exception as e:
         logger.error(f"Error closing cache service: {e}")
-    
+
     await close_connections()
 
 
@@ -71,7 +73,7 @@ instrumentator.instrument(app).expose(app)
 
 # Add middleware
 add_ip_whitelist_middleware(app)
-add_rate_limiter_middleware(app, calls_per_minute=300, max_concurrent=50, burst_size=50)
+add_rate_limiter_middleware(app, calls_per_minute=300, max_concurrent=70, burst_size=70)
 
 # Include routers
 app.include_router(analysis_router, prefix="/api/v1")
