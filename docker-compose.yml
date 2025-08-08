@@ -33,13 +33,10 @@ services:
       - 8.8.8.8      # Google DNS (primary)
       - 1.1.1.1      # Cloudflare DNS (secondary)
     dns_search: []   # Remove search domains to speed up resolution
-    # Network performance optimizations
+    # Network performance optimizations (only available sysctls)
     sysctls:
-      - net.core.rmem_max=16777216          # Increase receive buffer size
-      - net.core.wmem_max=16777216          # Increase send buffer size  
-      - net.ipv4.tcp_fin_timeout=30         # Reduce FIN timeout from 60s
       - net.ipv4.tcp_keepalive_time=600     # TCP keepalive settings
-      - net.ipv4.tcp_keepalive_intvl=60     # Keepalive probe interval
+      - net.ipv4.tcp_keepalive_intvl=60     # Keepalive probe interval  
       - net.ipv4.tcp_keepalive_probes=3     # Number of keepalive probes
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"] # Assumes app has a working root endpoint
