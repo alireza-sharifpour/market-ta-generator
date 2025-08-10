@@ -197,7 +197,108 @@ rate(container_cpu_usage_seconds_total{name="market-ta-generator"}[5m])
 - Loki data: Docker volume `loki_data`
 - Grafana data: Docker volume `grafana_data`
 
-## Maintenance
+## Log Retention and Storage Management
+
+### Automatic Log Cleanup Configuration
+
+The monitoring stack is configured with comprehensive log retention policies to prevent disk space issues:
+
+#### **Systemd Journal Limits**
+- **Maximum size**: 1GB (down from ~3.3GB default)
+- **Rotation**: Weekly (instead of monthly)
+- **Retention**: 2 months maximum
+- **Compression**: Enabled to save space
+- **Free space**: Maintains 500MB minimum
+
+Configuration applied via `scripts/configure_systemd_journal.sh`:
+```bash
+# Run this script to configure systemd journal limits
+sudo ./scripts/configure_systemd_journal.sh
+```
+
+#### **Loki Log Retention**
+- **Retention period**: 7 days (168h)
+- **Compactor**: Enabled with automatic deletion
+- **Delete delay**: 2 hours (safety buffer)
+- **Working directory**: `/loki/compactor`
+- **Storage**: Filesystem-based with delete request tracking
+
+Configuration in `monitoring/loki/loki-config.yml`:
+```yaml
+limits_config:
+  retention_period: 168h  # 7 days
+  max_query_lookback: 168h
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 150
+  delete_request_store: filesystem
+```
+
+#### **Docker Container Log Rotation**
+All containers are configured with bounded log growth:
+
+- **Application container**: 10MB × 5 files = 50MB maximum
+- **Monitoring containers** (Prometheus, Grafana, Loki): 20MB × 6 files = 120MB maximum each
+
+Configuration in `docker-compose.yml`:
+```yaml
+logging:
+  driver: "json-file"
+  options:
+    max-size: "20m"  # 10m for app container
+    max-file: "6"    # 5 for app container
+```
+
+#### **Prometheus Data Retention**
+- **Time-based retention**: 15 days
+- **Storage optimization**: TSDB format with compression
+- **Volume management**: Automatic cleanup of old data
+
+### Storage Usage Monitoring
+
+#### Expected Storage Consumption:
+- **Systemd journals**: ~1GB (automatically managed)
+- **Loki logs**: ~200MB (7-day rolling window)
+- **Prometheus metrics**: ~400MB (15-day retention)
+- **Grafana data**: ~40MB (dashboards and config)
+- **Container logs**: 50-120MB per container (bounded)
+
+#### **Total Expected Usage**: ~2-3GB (vs previous 15+ GB unbounded growth)
+
+### Maintenance Commands
+
+#### **Check Current Storage Usage**
+```bash
+# Overall disk usage
+df -h
+
+# Systemd journal usage
+sudo journalctl --disk-usage
+
+# Docker system usage
+docker system df
+
+# Individual volume sizes
+docker exec loki du -sh /loki
+docker exec prometheus du -sh /prometheus
+docker exec grafana du -sh /var/lib/grafana
+```
+
+#### **Manual Cleanup (if needed)**
+```bash
+# Clean systemd journals (emergency cleanup)
+sudo journalctl --vacuum-size=500M
+sudo journalctl --vacuum-time=7d
+
+# Clean Docker build cache
+docker builder prune -a -f
+
+# Clean unused images
+docker image prune -a -f
+```
 
 ### Backup
 
@@ -213,22 +314,20 @@ docker run --rm -v market-ta-generator_prometheus_data:/data -v $(pwd):/backup a
 
 ```bash
 # Update images
-docker-compose pull
+docker compose pull
 
-# Restart services
-docker-compose down
-docker-compose up -d
+# Restart services with new log limits
+docker compose down
+docker compose up -d
 ```
 
-### Cleanup
+### Automated Cleanup
 
-```bash
-# Remove old containers and images
-docker system prune -f
-
-# Clean up logs older than 30 days
-docker run --rm -v /var/lib/docker/containers:/containers alpine find /containers -name "*.log" -mtime +30 -delete
-```
+The following cleanup happens automatically:
+1. **Systemd journals**: Rotate weekly, delete after 2 months, maintain 1GB max
+2. **Loki logs**: Delete logs older than 7 days every 2 hours
+3. **Docker container logs**: Rotate when files exceed size limits
+4. **Prometheus data**: Delete metrics older than 15 days
 
 ## Security Considerations
 
