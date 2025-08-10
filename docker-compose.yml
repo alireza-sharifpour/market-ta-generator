@@ -95,6 +95,11 @@ services:
       - "--web.console.templates=/usr/share/prometheus/consoles"
       - "--storage.tsdb.retention.time=15d"
       - "--web.enable-lifecycle"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "6"
     networks:
       - monitoring
 
@@ -109,6 +114,11 @@ services:
       - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "6"
     networks:
       - monitoring
 
@@ -142,6 +152,11 @@ services:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "6"
     networks:
       - monitoring
 

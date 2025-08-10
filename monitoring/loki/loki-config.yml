@@ -33,6 +33,18 @@ schema_config:
         prefix: index_
         period: 24h
 
+# Log retention configuration
+limits_config:
+  retention_period: 168h  # 7 days
+  max_query_lookback: 168h
+
+# Compactor for retention (recommended in 2024/2025)
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 150
+
 ruler:
   alertmanager_url: http://localhost:9093
 
