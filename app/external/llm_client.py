@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 def unescape_markdownv2(text: str) -> str:
     """
     Remove existing MarkdownV2 escape sequences to prevent double escaping.
+    Note: We don't unescape '*' and '_' as they should remain for formatting.
 
     Args:
         text: The text that may contain existing escape sequences
@@ -38,9 +39,8 @@ def unescape_markdownv2(text: str) -> str:
 
     # Remove backslashes followed by special characters
     # This handles patterns like \\- or \\. or \\_
+    # Note: We don't unescape '*' and '_' as they should remain for formatting
     special_chars = [
-        "_",
-        "*",
         "[",
         "]",
         "(",
@@ -76,10 +76,10 @@ def escape_markdownv2(text: str) -> str:
     """
     Escape MarkdownV2 special characters for Telegram.
     First removes any existing escape sequences to prevent double escaping.
-    Preserves '>' characters at the beginning of lines for blockquotes.
+    Preserves formatting characters (*, _) and '>' characters at the beginning of lines for blockquotes.
 
     In MarkdownV2, these characters are special and must be escaped with backslash:
-    _*[]()~`>#+-=|{}.!
+    []()~`>#+-=|{}.!
 
     Args:
         text: The text to escape
@@ -90,11 +90,10 @@ def escape_markdownv2(text: str) -> str:
     # First remove any existing escape sequences
     text = unescape_markdownv2(text)
 
-    # Characters that need escaping in MarkdownV2 (excluding '>' for now)
+    # Characters that need escaping in MarkdownV2 (excluding '*', '_', and '>' for now)
+    # Note: We don't escape '*' and '_' as they are used for formatting
     special_chars = [
         "\\",  # Backslash must be escaped first to avoid double escaping
-        "_",
-        "*",
         "[",
         "]",
         "(",
@@ -112,7 +111,7 @@ def escape_markdownv2(text: str) -> str:
         "!",
     ]
 
-    # Escape all special characters except '>'
+    # Escape all special characters except '*', '_', and '>'
     for char in special_chars:
         text = text.replace(char, f"\\{char}")
 
@@ -621,6 +620,13 @@ async def generate_combined_analysis(
         prompt = f"""
         You are a professional cryptocurrency technical analyst. Generate BOTH a detailed analysis and a summarized analysis for {pair} in Persian using the provided data.
 
+        **FORMATTING EXAMPLE**: 
+        Instead of: "قیمت لحظه‌ای: 4303.0900"
+        Write: "**قیمت لحظه‌ای:** 4303.0900"
+        
+        Instead of: "روند بلندمدت --> متوسط صعودی"
+        Write: "**روند بلندمدت** --> متوسط صعودی"
+
         **Input Data:**
         Trading Pair: {pair}
         Timeframe: {persian_timeframe_phrase_detailed}
@@ -652,6 +658,7 @@ async def generate_combined_analysis(
              * Lists are NOT supported in Telegram MarkdownV2
              * Use bullet points with ▫️ or - symbols instead
            - IMPORTANT: Do NOT escape any characters manually - this will be handled automatically
+           - **CRITICAL**: You MUST use **bold** formatting for all key terms and labels in your response
         3. **CRITICAL**: You MUST return a valid JSON object with exactly this structure:
         {{
             "detailed_analysis": "DETAILED_ANALYSIS_CONTENT_HERE",
@@ -665,28 +672,28 @@ async def generate_combined_analysis(
 
         >۱. خلاصه عمومی و وضعیت فعلی:
         - در آخرین کندل [{persian_timeframe_phrase_detailed}] (تاریخ [date])، قیمت {pair} با [change_percentage] بسته شده است.
-        - قیمت فعلی ([current_price]) در محدوده [position description relative to range] قرار دارد.
-        - حجم معاملات در آخرین دوره [volume] بوده است.
-        - نوسانات اخیر در سطح [volatility_percentage] قرار دارد.
+        - **قیمت فعلی** ([current_price]) در محدوده [position description relative to range] قرار دارد.
+        - **حجم معاملات** در آخرین دوره [volume] بوده است.
+        - **نوسانات اخیر** در سطح [volatility_percentage] قرار دارد.
 
         >۲. تحلیل تکنیکال جامع:
-        - میانگین‌های متحرک (EMAs):
+        - **میانگین‌های متحرک (EMAs):**
         - میانگین‌های متحرک کوتاه‌مدت (EMA_9 در [value] و EMA_21 در [value]) [trend_description] و [position_relative_to_price].
         - میانگین متحرک بلندمدت (EMA_50 در [value]) [trend_description] و [position_relative_to_price].
-        - قیمت فعلی [position_description relative to EMAs].
+        - **قیمت فعلی** [position_description relative to EMAs].
 
-        - اندیکاتورهای مومنتوم (RSI, MFI):
+        - **اندیکاتورهای مومنتوم (RSI, MFI):**
         - اندیکاتور RSI_14 با مقدار [value] در محدوده [overbought/oversold/neutral] قرار دارد و [trend_direction].
         - اندیکاتور MFI_14 با مقدار [value] در محدوده [description] قرار دارد و [trend_direction].
 
-        - قدرت روند (ADX, DI+/DI-):
+        - **قدرت روند (ADX, DI+/DI-):**
         - اندیکاتور ADX_14 با مقدار [value] نشان‌دهنده [strong/weak/ranging trend].
         - مقایسه DI+ ([value]) و DI- ([value]) نشان می‌دهد که [comparison and trend direction].
 
-        - باندهای نوسان (Bollinger Bands):
-        - قیمت فعلی ([price]) [position relative to bands] باندهای بولینگر قرار دارد.
+        - **باندهای نوسان (Bollinger Bands):**
+        - **قیمت فعلی** ([price]) [position relative to bands] باندهای بولینگر قرار دارد.
         - باند بالایی در فاصله [percentage] بالای قیمت و باند پایینی در فاصله [percentage] پایین‌تر از قیمت قرار دارد.
-        - پهنای باند [description of volatility].
+        - **پهنای باند** [description of volatility].
 
         >۳. سطوح حمایت و مقاومت کلیدی:
         - بر اساس داده‌های ارائه شده، [resistance levels description].
@@ -712,17 +719,17 @@ async def generate_combined_analysis(
         📊 تحلیل {pair} - تایم‌فریم {persian_timeframe_phrase_summarized}
 
         ▫️وضعیت کلی:
-        - قیمت لحظه‌ای: [current_price from "Current Market Price (Live)" section if available, otherwise use latest Close price]
-        - روند بلندمدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
-        - روند کوتاه‌مدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
-        - حمایت مهم بعدی: [support_level]
-        - مقاومت مهم بعدی: [resistance_level]
+        - **قیمت لحظه‌ای:** [current_price from "Current Market Price (Live)" section if available, otherwise use latest Close price]
+        - **روند بلندمدت** --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - **روند کوتاه‌مدت** --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - **حمایت مهم بعدی:** [support_level]
+        - **مقاومت مهم بعدی:** [resistance_level]
 
         💭 توصیه عملی:
         - [Short practical recommendation based on indicators]
-        - نقطه ورود احتمالی: [specific price range based on EMA levels, support levels, or pullback zones - e.g., "محدوده 105000-105500" or "در صورت پولبک به محدوده 105235-105500"]
-        - سطح کلیدی برای تایید: [confirmation level]
-        - سطح ریسک: [متوسط/بالا/پایین]
+        - **نقطه ورود احتمالی:** [specific price range based on EMA levels, support levels, or pullback zones - e.g., "محدوده 105000-105500" or "در صورت پولبک به محدوده 105235-105500"]
+        - **سطح کلیدی برای تایید:** [confirmation level]
+        - **سطح ریسک:** [متوسط/بالا/پایین]
 
         ⚠️ نکات مهم:
         - [Key warning or note about EMA levels/resistance failure]
@@ -741,6 +748,23 @@ async def generate_combined_analysis(
         - Provide detailed percentage calculations and comparisons in detailed analysis
         - Use specific numbers and values throughout both analyses
         - Maintain professional Persian technical analysis terminology
+        - **CRITICAL FORMATTING**: You MUST use **bold** formatting for key terms. Examples:
+          * "قیمت لحظه‌ای" should be "**قیمت لحظه‌ای**"
+          * "روند بلندمدت" should be "**روند بلندمدت**"
+          * "روند کوتاه‌مدت" should be "**روند کوتاه‌مدت**"
+          * "حمایت مهم بعدی" should be "**حمایت مهم بعدی**"
+          * "مقاومت مهم بعدی" should be "**مقاومت مهم بعدی**"
+          * "نقطه ورود احتمالی" should be "**نقطه ورود احتمالی**"
+          * "سطح کلیدی برای تایید" should be "**سطح کلیدی برای تایید**"
+          * "سطح ریسک" should be "**سطح ریسک**"
+          * "قیمت فعلی" should be "**قیمت فعلی**"
+          * "حجم معاملات" should be "**حجم معاملات**"
+          * "نوسانات اخیر" should be "**نوسانات اخیر**"
+          * "میانگین‌های متحرک (EMAs)" should be "**میانگین‌های متحرک (EMAs)**"
+          * "اندیکاتورهای مومنتوم (RSI, MFI)" should be "**اندیکاتورهای مومنتوم (RSI, MFI)**"
+          * "قدرت روند (ADX, DI+/DI-)" should be "**قدرت روند (ADX, DI+/DI-)**"
+          * "باندهای نوسان (Bollinger Bands)" should be "**باندهای نوسان (Bollinger Bands)**"
+          * "پهنای باند" should be "**پهنای باند**"
         - **CRITICAL**: Return ONLY the JSON object - no extra text before or after
         """
 
