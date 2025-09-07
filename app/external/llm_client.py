@@ -512,8 +512,6 @@ async def generate_summarized_analysis(
         3. Keep it SHORT - maximum 10-12 lines
         4. Follow this EXACT structure:
 
-        **نتیجه**
-
         📊 تحلیل {pair} - تایم‌فریم {persian_timeframe_phrase}
 
         ▫️وضعیت کلی:
@@ -555,12 +553,15 @@ async def generate_summarized_analysis(
         # Apply MarkdownV2 escaping to ensure Telegram compatibility
         escaped_analysis = escape_markdownv2(analysis)
 
+        # Add "نتیجه" header to the final text
+        final_analysis = "**نتیجه**\n\n" + escaped_analysis
+
         # Add debug logging for the escaped analysis
         logger.debug("======== ESCAPED ANALYSIS (SUMMARIZED) ========")
-        logger.debug(escaped_analysis)
+        logger.debug(final_analysis)
         logger.debug("===============================================")
 
-        return escaped_analysis
+        return final_analysis
 
     except Exception as e:
         logger.error(f"Error generating summarized analysis for {pair}: {str(e)}")
@@ -658,7 +659,7 @@ async def generate_combined_analysis(
         {"""For current price references, use exactly CURRENTPRICE instead of actual price values.
         This placeholder will be replaced with the actual current price after generation.
         
-        Examples:
+        Examples:AnalyzeResponse
         - قیمت لحظه‌ای: CURRENTPRICE
         - قیمت فعلی (CURRENTPRICE) در محدوده...
         - Instead of writing "قیمت فعلی (105000)" write "قیمت فعلی (CURRENTPRICE)"
@@ -734,8 +735,6 @@ async def generate_combined_analysis(
 
         **Summarized Analysis Structure:**
         Follow this EXACT structure for the summarized_analysis field:
-
-        **نتیجه**
 
         📊 تحلیل {pair} - تایم‌فریم {persian_timeframe_phrase_summarized}
 
@@ -828,17 +827,20 @@ async def generate_combined_analysis(
             escaped_detailed = escape_markdownv2(detailed_analysis)
             escaped_summarized = escape_markdownv2(summarized_analysis)
 
+            # Add "نتیجه" header to the summarized analysis
+            final_summarized = "**نتیجه**\n\n" + escaped_summarized
+
             # Add debug logging for the escaped analyses
             logger.debug("======== ESCAPED ANALYSIS (COMBINED - DETAILED) ========")
             logger.debug(escaped_detailed)
             logger.debug("======================================================")
             logger.debug("======== ESCAPED ANALYSIS (COMBINED - SUMMARIZED) ========")
-            logger.debug(escaped_summarized)
+            logger.debug(final_summarized)
             logger.debug("========================================================")
 
             return {
                 "detailed_analysis": escaped_detailed,
-                "summarized_analysis": escaped_summarized,
+                "summarized_analysis": final_summarized,
             }
 
         except json.JSONDecodeError as e:
