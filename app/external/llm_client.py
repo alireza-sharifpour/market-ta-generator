@@ -39,7 +39,7 @@ def unescape_markdownv2(text: str) -> str:
 
     # Remove backslashes followed by special characters
     # This handles patterns like \\- or \\. or \\_
-    # Note: We don't unescape '*' and '_' as they should remain for formatting
+    # Note: We don't unescape '*' as it should remain for formatting
     special_chars = [
         "[",
         "]",
@@ -58,6 +58,7 @@ def unescape_markdownv2(text: str) -> str:
         ".",
         "!",
         "\\",
+        "_",  # Include underscore in unescaping since we now escape it
     ]
 
     for char in special_chars:
@@ -90,8 +91,9 @@ def escape_markdownv2(text: str) -> str:
     # First remove any existing escape sequences
     text = unescape_markdownv2(text)
 
-    # Characters that need escaping in MarkdownV2 (excluding '*', '_', and '>' for now)
-    # Note: We don't escape '*' and '_' as they are used for formatting
+    # Characters that need escaping in MarkdownV2 (excluding '*' for bold formatting and '>' for blockquotes)
+    # Note: We escape '_' because it's used for italic formatting in MarkdownV2, and we don't want
+    # underscores in coin names like "sui_usdt" to be interpreted as italic formatting
     special_chars = [
         "\\",  # Backslash must be escaped first to avoid double escaping
         "[",
@@ -109,9 +111,10 @@ def escape_markdownv2(text: str) -> str:
         "}",
         ".",
         "!",
+        "_",  # Escape underscores to prevent italic formatting from coin names like "sui_usdt"
     ]
 
-    # Escape all special characters except '*', '_', and '>'
+    # Escape all special characters except '*' (for bold) and '>' (for blockquotes)
     for char in special_chars:
         text = text.replace(char, f"\\{char}")
 
