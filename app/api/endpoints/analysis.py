@@ -41,22 +41,37 @@ async def analyze_pair(request: AnalysisRequest):
 
         # Check if the analysis was successful
         if result["status"] == "success":
-            return AnalysisResponse(
+            response = AnalysisResponse(
                 status=result["status"],
                 analysis=result["analysis"],
                 analysis_summarized=result.get("analysis_summarized"),
                 message=None,
                 chart_image_base64=result.get("chart_image_base64"),
             )
+            # Add debug logging for the final response
+            logger.debug("======== FINAL RESPONSE SENT FROM ENDPOINT ========")
+            logger.debug(f"Status: {response.status}")
+            logger.debug(f"Analysis: {response.analysis}")
+            logger.debug(f"Analysis Summarized: {response.analysis_summarized}")
+            logger.debug(f"Message: {response.message}")
+            logger.debug(f"Chart Image Base64: {'Present' if response.chart_image_base64 else 'None'}")
+            logger.debug("==================================================")
+            return response
         else:
             # Return error response with appropriate message
-            return AnalysisResponse(
+            response = AnalysisResponse(
                 status=result["status"],
                 analysis=None,
                 analysis_summarized=None,
                 message=result["message"],
                 chart_image_base64=None,
             )
+            # Add debug logging for the error response
+            logger.debug("======== ERROR RESPONSE SENT FROM ENDPOINT ========")
+            logger.debug(f"Status: {response.status}")
+            logger.debug(f"Message: {response.message}")
+            logger.debug("==================================================")
+            return response
     except Exception as e:
         logger.error(f"Error during analysis: {str(e)}")
         raise HTTPException(
