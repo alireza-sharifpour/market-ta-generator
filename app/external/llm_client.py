@@ -512,6 +512,8 @@ async def generate_summarized_analysis(
         3. Keep it SHORT - maximum 10-12 lines
         4. Follow this EXACT structure:
 
+        **نتیجه**
+
         📊 تحلیل {pair} - تایم‌فریم {persian_timeframe_phrase}
 
         ▫️وضعیت کلی:
@@ -732,6 +734,8 @@ async def generate_combined_analysis(
 
         **Summarized Analysis Structure:**
         Follow this EXACT structure for the summarized_analysis field:
+
+        **نتیجه**
 
         📊 تحلیل {pair} - تایم‌فریم {persian_timeframe_phrase_summarized}
 
