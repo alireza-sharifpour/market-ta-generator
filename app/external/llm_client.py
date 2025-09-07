@@ -554,7 +554,7 @@ async def generate_summarized_analysis(
         escaped_analysis = escape_markdownv2(analysis)
 
         # Add "نتیجه" header to the final text
-        final_analysis = "\*\*نتیجه\*\*\n\n" + "\\*\\*نتیجه\\*\\*\n\n" + escaped_analysis
+        final_analysis = escaped_analysis
 
         # Add debug logging for the escaped analysis
         logger.debug("======== ESCAPED ANALYSIS (SUMMARIZED) ========")
@@ -828,7 +828,7 @@ async def generate_combined_analysis(
             escaped_summarized = escape_markdownv2(summarized_analysis)
 
             # Add "نتیجه" header to the summarized analysis
-            final_summarized = "\*\*نتیجه\*\*\n\n" + "\\*\\*نتیجه\\*\\*\n\n" + escaped_summarized
+            final_summarized = escaped_summarized
 
             # Add debug logging for the escaped analyses
             logger.debug("======== ESCAPED ANALYSIS (COMBINED - DETAILED) ========")
