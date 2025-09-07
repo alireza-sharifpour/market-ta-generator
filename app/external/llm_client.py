@@ -236,6 +236,10 @@ class OpenAIClient(BaseLLMClient):
                         logger.debug(
                             f"Received response from OpenAI: {generated_text[:100]}..."
                         )
+                        # Add debug logging for the full generated text
+                        logger.debug("======== FULL GENERATED TEXT FROM LLM ========")
+                        logger.debug(generated_text)
+                        logger.debug("==============================================")
                         return generated_text
                     else:
                         raise ValueError("Empty response content from OpenAI")
@@ -420,6 +424,11 @@ async def generate_basic_analysis(
         # Apply MarkdownV2 escaping to ensure Telegram compatibility
         escaped_analysis = escape_markdownv2(analysis)
 
+        # Add debug logging for the escaped analysis
+        logger.debug("======== ESCAPED ANALYSIS (BASIC) ========")
+        logger.debug(escaped_analysis)
+        logger.debug("==========================================")
+
         return escaped_analysis
 
     except Exception as e:
@@ -540,6 +549,11 @@ async def generate_summarized_analysis(
 
         # Apply MarkdownV2 escaping to ensure Telegram compatibility
         escaped_analysis = escape_markdownv2(analysis)
+
+        # Add debug logging for the escaped analysis
+        logger.debug("======== ESCAPED ANALYSIS (SUMMARIZED) ========")
+        logger.debug(escaped_analysis)
+        logger.debug("===============================================")
 
         return escaped_analysis
 
@@ -807,6 +821,14 @@ async def generate_combined_analysis(
             escaped_detailed = escape_markdownv2(detailed_analysis)
             escaped_summarized = escape_markdownv2(summarized_analysis)
 
+            # Add debug logging for the escaped analyses
+            logger.debug("======== ESCAPED ANALYSIS (COMBINED - DETAILED) ========")
+            logger.debug(escaped_detailed)
+            logger.debug("======================================================")
+            logger.debug("======== ESCAPED ANALYSIS (COMBINED - SUMMARIZED) ========")
+            logger.debug(escaped_summarized)
+            logger.debug("========================================================")
+
             return {
                 "detailed_analysis": escaped_detailed,
                 "summarized_analysis": escaped_summarized,
@@ -964,6 +986,11 @@ async def generate_detailed_analysis(
 
         # Apply MarkdownV2 escaping to ensure Telegram compatibility
         escaped_analysis = escape_markdownv2(analysis)
+
+        # Add debug logging for the escaped analysis
+        logger.debug("======== ESCAPED ANALYSIS (DETAILED) ========")
+        logger.debug(escaped_analysis)
+        logger.debug("============================================")
 
         return escaped_analysis
 
