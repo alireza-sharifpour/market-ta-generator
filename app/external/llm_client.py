@@ -94,6 +94,7 @@ def escape_markdownv2(text: str) -> str:
     # Characters that need escaping in MarkdownV2 (excluding '*' for bold formatting and '>' for blockquotes)
     # Note: We escape '_' because it's used for italic formatting in MarkdownV2, and we don't want
     # underscores in coin names like "sui_usdt" to be interpreted as italic formatting
+    # Note: We don't escape '*' because it's used for bold formatting (*text*)
     special_chars = [
         "\\",  # Backslash must be escaped first to avoid double escaping
         "[",
@@ -114,7 +115,7 @@ def escape_markdownv2(text: str) -> str:
         "_",  # Escape underscores to prevent italic formatting from coin names like "sui_usdt"
     ]
 
-    # Escape all special characters except '*' (for bold) and '>' (for blockquotes)
+    # Escape all special characters except '*' (for bold formatting) and '>' (for blockquotes)
     for char in special_chars:
         text = text.replace(char, f"\\{char}")
 
@@ -378,14 +379,14 @@ async def generate_basic_analysis(
 
         **Output Requirements:**
         1.  **Language:** MUST be entirely in **Persian (Farsi)**.
-        2.  **Formatting:** Use **Telegram Markdown** (`**bold**`, `- ` bullets).
+        2.  **Formatting:** Use **Telegram Markdown** (`*bold*`, `- ` bullets).
         3.  **IMPORTANT:** Do NOT escape any characters manually - this will be handled automatically.
         4.  **Structure:**
-            * **Title:** Start immediately with the Persian title, strictly following this structure: `**تحلیل {pair} - تایم فریم [PERSIAN_TIMEFRAME_PHRASE]**`.
+            * **Title:** Start immediately with the Persian title, strictly following this structure: `*تحلیل {pair} - تایم فریم [PERSIAN_TIMEFRAME_PHRASE]*`.
                 * Convert the Input Timeframe (`{timeframe_description}`) into the `[PERSIAN_TIMEFRAME_PHRASE]` using natural Persian TA phrasing. **Examples:**
-                    * Input `daily` -> Use `روزانه` -> Full Title: `**تحلیل {pair} - تایم فریم روزانه**`
-                    * Input `4-hour` -> Use `۴ ساعته` -> Full Title: `**تحلیل {pair} - تایم فریم ۴ ساعته**`
-                    * Input `1-hour` -> Use `۱ ساعته` -> Full Title: `**تحلیل {pair} - تایم فریم ۱ ساعته**`
+                    * Input `daily` -> Use `روزانه` -> Full Title: `*تحلیل {pair} - تایم فریم روزانه*`
+                    * Input `4-hour` -> Use `۴ ساعته` -> Full Title: `*تحلیل {pair} - تایم فریم ۴ ساعته*`
+                    * Input `1-hour` -> Use `۱ ساعته` -> Full Title: `*تحلیل {pair} - تایم فریم ۱ ساعته*`
                     *(Adapt pattern for others)*
             * **Data Period Identification (Instruction for LLM):**
                 * **Carefully examine** the `Date` column in the `data_summary` provided above. Ignore the header row.
@@ -394,19 +395,19 @@ async def generate_basic_analysis(
                 * **CRITICAL:** Extract the dates exactly as they appear (YYYY-MM-DD format). **Verify the year.** For example, if the first date is `2025-04-07`, use `2025-04-07`. **Do not output incorrect years like 20025.**
             * **Body:** Follow the title (with a blank line) using these exact Persian headings:
 
-                `**۱. خلاصه وضعیت:**`
-                - Provide a brief overview for **{pair}** in the specified Persian timeframe. State that the analysis covers the period from **[START_DATE]** to **[END_DATE]** (using the exact dates identified from the first and last data rows).
-                - Calculate and mention the approximate **overall percentage change** from the *start to the end* of the provided data.
-                - Describe the price action in the **last 1-3 candles** within the data set.
-                - Briefly comment on recent **volume** compared to the average volume in the provided data set.
+                `*۱. خلاصه وضعیت:*`
+                - Provide a brief overview for *{pair}* in the specified Persian timeframe. State that the analysis covers the period from *[START_DATE]* to *[END_DATE]* (using the exact dates identified from the first and last data rows).
+                - Calculate and mention the approximate *overall percentage change* from the *start to the end* of the provided data.
+                - Describe the price action in the *last 1-3 candles* within the data set.
+                - Briefly comment on recent *volume* compared to the average volume in the provided data set.
 
-                `**۲. روند و سطوح مشاهده شده:**`
-                - State the primary **trend** observed *during the analyzed period* (from **[START_DATE]** to **[END_DATE]**).
-                - Specify the **highest price** (`بالاترین قیمت در این دوره`) and **lowest price** (`پایین‌ترین قیمت در این دوره`) reached *within this specific period* (from **[START_DATE]** to **[END_DATE]**).
-                - Report the **most recent closing price** (`آخرین قیمت بسته‌شدن`) and mention where it sits relative to the high and low *of this period*.
+                `*۲. روند و سطوح مشاهده شده:*`
+                - State the primary *trend* observed *during the analyzed period* (from *[START_DATE]* to *[END_DATE]*).
+                - Specify the *highest price* (`بالاترین قیمت در این دوره`) and *lowest price* (`پایین‌ترین قیمت در این دوره`) reached *within this specific period* (from *[START_DATE]* to *[END_DATE]*).
+                - Report the *most recent closing price* (`آخرین قیمت بسته‌شدن`) and mention where it sits relative to the high and low *of this period*.
 
-                `**۳. احساسات کلی (بر اساس قیمت/حجم):**`
-                - Conclude the overall market sentiment derived *strictly* from the observed price/volume *in the analyzed period* (from **[START_DATE]** to **[END_DATE]**).
+                `*۳. احساسات کلی (بر اساس قیمت/حجم):*`
+                - Conclude the overall market sentiment derived *strictly* from the observed price/volume *in the analyzed period* (from *[START_DATE]* to *[END_DATE]*).
                 # Disclaimer instruction has been removed.
 
         **Important Constraints:**
@@ -502,7 +503,7 @@ async def generate_summarized_analysis(
         1. Language: **Persian (Farsi) only**
         2. Format: MarkdownV2 for Telegram
            - MarkdownV2 formatting guide:
-             * Bold text: Use **text** for bold formatting
+             * Bold text: Use *text* for bold formatting
              * Italic text: Use __text__ for italic formatting
              * Monospace/code: Use `text` for inline code
              * Strikethrough: Use ~~text~~ for strikethrough
@@ -515,17 +516,17 @@ async def generate_summarized_analysis(
         📊 تحلیل {pair} - تایم‌فریم {persian_timeframe_phrase}
 
         ▫️وضعیت کلی:
-        - قیمت لحظه‌ای: [current_price from "Current Market Price (Live)" section if available, otherwise use latest Close price]
-        - روند بلندمدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
-        - روند کوتاه‌مدت --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
-        - حمایت مهم بعدی: [support_level]
-        - مقاومت مهم بعدی: [resistance_level]
+        - *قیمت لحظه‌ای:* [current_price from "Current Market Price (Live)" section if available, otherwise use latest Close price]
+        - *روند بلندمدت* --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - *روند کوتاه‌مدت* --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - *حمایت مهم بعدی:* [support_level]
+        - *مقاومت مهم بعدی:* [resistance_level]
 
         💭 توصیه عملی:
         - [Short practical recommendation based on indicators]
-        - نقطه ورود احتمالی: [specific price range based on EMA levels, support levels, or pullback zones - e.g., "محدوده 105000-105500" or "در صورت پولبک به محدوده 105235-105500"]
-        - سطح کلیدی برای تایید: [confirmation level]
-        - سطح ریسک: [متوسط/بالا/پایین]
+        - *نقطه ورود احتمالی:* [specific price range based on EMA levels, support levels, or pullback zones - e.g., "محدوده 105000-105500" or "در صورت پولبک به محدوده 105235-105500"]
+        - *سطح کلیدی برای تایید:* [confirmation level]
+        - *سطح ریسک:* [متوسط/بالا/پایین]
 
         ⚠️ نکات مهم:
         - [Key warning or note about EMA levels/resistance failure]
@@ -642,10 +643,10 @@ async def generate_combined_analysis(
 
         **FORMATTING EXAMPLE**: 
         Instead of: "قیمت لحظه‌ای: 4303.0900"
-        Write: "**قیمت لحظه‌ای:** 4303.0900"
+        Write: "*قیمت لحظه‌ای:* 4303.0900"
         
         Instead of: "روند بلندمدت --> متوسط صعودی"
-        Write: "**روند بلندمدت** --> متوسط صعودی"
+        Write: "*روند بلندمدت* --> متوسط صعودی"
 
         **Input Data:**
         Trading Pair: {pair}
@@ -670,7 +671,7 @@ async def generate_combined_analysis(
         1. Language: **Persian (Farsi) only**
         2. Format: MarkdownV2 for Telegram
            - MarkdownV2 formatting guide:
-             * Bold text: Use **text** for bold formatting
+             * Bold text: Use *text* for bold formatting
              * Italic text: Use __text__ for italic formatting
              * Monospace/code: Use `text` for inline code
              * Strikethrough: Use ~~text~~ for strikethrough
@@ -678,7 +679,7 @@ async def generate_combined_analysis(
              * Lists are NOT supported in Telegram MarkdownV2
              * Use bullet points with ▫️ or - symbols instead
            - IMPORTANT: Do NOT escape any characters manually - this will be handled automatically
-           - **CRITICAL**: You MUST use **bold** formatting for all key terms and labels in your response
+           - **CRITICAL**: You MUST use *bold* formatting for all key terms and labels in your response
         3. **CRITICAL**: You MUST return a valid JSON object with exactly this structure:
         {{
             "detailed_analysis": "DETAILED_ANALYSIS_CONTENT_HERE",
@@ -692,28 +693,28 @@ async def generate_combined_analysis(
 
         >۱. خلاصه عمومی و وضعیت فعلی:
         - در آخرین کندل [{persian_timeframe_phrase_detailed}] (تاریخ [date])، قیمت {pair} با [change_percentage] بسته شده است.
-        - **قیمت فعلی** ([current_price]) در محدوده [position description relative to range] قرار دارد.
-        - **حجم معاملات** در آخرین دوره [volume] بوده است.
-        - **نوسانات اخیر** در سطح [volatility_percentage] قرار دارد.
+        - *قیمت فعلی* ([current_price]) در محدوده [position description relative to range] قرار دارد.
+        - *حجم معاملات* در آخرین دوره [volume] بوده است.
+        - *نوسانات اخیر* در سطح [volatility_percentage] قرار دارد.
 
         >۲. تحلیل تکنیکال جامع:
-        - **میانگین‌های متحرک (EMAs):**
+        - *میانگین‌های متحرک (EMAs):*
         - میانگین‌های متحرک کوتاه‌مدت (EMA_9 در [value] و EMA_21 در [value]) [trend_description] و [position_relative_to_price].
         - میانگین متحرک بلندمدت (EMA_50 در [value]) [trend_description] و [position_relative_to_price].
-        - **قیمت فعلی** [position_description relative to EMAs].
+        - *قیمت فعلی* [position_description relative to EMAs].
 
-        - **اندیکاتورهای مومنتوم (RSI, MFI):**
+        - *اندیکاتورهای مومنتوم (RSI, MFI):*
         - اندیکاتور RSI_14 با مقدار [value] در محدوده [overbought/oversold/neutral] قرار دارد و [trend_direction].
         - اندیکاتور MFI_14 با مقدار [value] در محدوده [description] قرار دارد و [trend_direction].
 
-        - **قدرت روند (ADX, DI+/DI-):**
+        - *قدرت روند (ADX, DI+/DI-):*
         - اندیکاتور ADX_14 با مقدار [value] نشان‌دهنده [strong/weak/ranging trend].
         - مقایسه DI+ ([value]) و DI- ([value]) نشان می‌دهد که [comparison and trend direction].
 
-        - **باندهای نوسان (Bollinger Bands):**
-        - **قیمت فعلی** ([price]) [position relative to bands] باندهای بولینگر قرار دارد.
+        - *باندهای نوسان (Bollinger Bands):*
+        - *قیمت فعلی* ([price]) [position relative to bands] باندهای بولینگر قرار دارد.
         - باند بالایی در فاصله [percentage] بالای قیمت و باند پایینی در فاصله [percentage] پایین‌تر از قیمت قرار دارد.
-        - **پهنای باند** [description of volatility].
+        - *پهنای باند* [description of volatility].
 
         >۳. سطوح حمایت و مقاومت کلیدی:
         - بر اساس داده‌های ارائه شده، [resistance levels description].
@@ -739,17 +740,17 @@ async def generate_combined_analysis(
         📊 تحلیل {pair} - تایم‌فریم {persian_timeframe_phrase_summarized}
 
         ▫️وضعیت کلی:
-        - **قیمت لحظه‌ای:** [current_price from "Current Market Price (Live)" section if available, otherwise use latest Close price]
-        - **روند بلندمدت** --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
-        - **روند کوتاه‌مدت** --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
-        - **حمایت مهم بعدی:** [support_level]
-        - **مقاومت مهم بعدی:** [resistance_level]
+        - *قیمت لحظه‌ای:* [current_price from "Current Market Price (Live)" section if available, otherwise use latest Close price]
+        - *روند بلندمدت* --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - *روند کوتاه‌مدت* --> [قوی/متوسط/ضعیف] [صعودی/نزولی/خنثی]
+        - *حمایت مهم بعدی:* [support_level]
+        - *مقاومت مهم بعدی:* [resistance_level]
 
         💭 توصیه عملی:
         - [Short practical recommendation based on indicators]
-        - **نقطه ورود احتمالی:** [specific price range based on EMA levels, support levels, or pullback zones - e.g., "محدوده 105000-105500" or "در صورت پولبک به محدوده 105235-105500"]
-        - **سطح کلیدی برای تایید:** [confirmation level]
-        - **سطح ریسک:** [متوسط/بالا/پایین]
+        - *نقطه ورود احتمالی:* [specific price range based on EMA levels, support levels, or pullback zones - e.g., "محدوده 105000-105500" or "در صورت پولبک به محدوده 105235-105500"]
+        - *سطح کلیدی برای تایید:* [confirmation level]
+        - *سطح ریسک:* [متوسط/بالا/پایین]
 
         ⚠️ نکات مهم:
         - [Key warning or note about EMA levels/resistance failure]
@@ -768,23 +769,23 @@ async def generate_combined_analysis(
         - Provide detailed percentage calculations and comparisons in detailed analysis
         - Use specific numbers and values throughout both analyses
         - Maintain professional Persian technical analysis terminology
-        - **CRITICAL FORMATTING**: You MUST use **bold** formatting for key terms. Examples:
-          * "قیمت لحظه‌ای" should be "**قیمت لحظه‌ای**"
-          * "روند بلندمدت" should be "**روند بلندمدت**"
-          * "روند کوتاه‌مدت" should be "**روند کوتاه‌مدت**"
-          * "حمایت مهم بعدی" should be "**حمایت مهم بعدی**"
-          * "مقاومت مهم بعدی" should be "**مقاومت مهم بعدی**"
-          * "نقطه ورود احتمالی" should be "**نقطه ورود احتمالی**"
-          * "سطح کلیدی برای تایید" should be "**سطح کلیدی برای تایید**"
-          * "سطح ریسک" should be "**سطح ریسک**"
-          * "قیمت فعلی" should be "**قیمت فعلی**"
-          * "حجم معاملات" should be "**حجم معاملات**"
-          * "نوسانات اخیر" should be "**نوسانات اخیر**"
-          * "میانگین‌های متحرک (EMAs)" should be "**میانگین‌های متحرک (EMAs)**"
-          * "اندیکاتورهای مومنتوم (RSI, MFI)" should be "**اندیکاتورهای مومنتوم (RSI, MFI)**"
-          * "قدرت روند (ADX, DI+/DI-)" should be "**قدرت روند (ADX, DI+/DI-)**"
-          * "باندهای نوسان (Bollinger Bands)" should be "**باندهای نوسان (Bollinger Bands)**"
-          * "پهنای باند" should be "**پهنای باند**"
+        - **CRITICAL FORMATTING**: You MUST use *bold* formatting for key terms. Examples:
+          * "قیمت لحظه‌ای" should be "*قیمت لحظه‌ای*"
+          * "روند بلندمدت" should be "*روند بلندمدت*"
+          * "روند کوتاه‌مدت" should be "*روند کوتاه‌مدت*"
+          * "حمایت مهم بعدی" should be "*حمایت مهم بعدی*"
+          * "مقاومت مهم بعدی" should be "*مقاومت مهم بعدی*"
+          * "نقطه ورود احتمالی" should be "*نقطه ورود احتمالی*"
+          * "سطح کلیدی برای تایید" should be "*سطح کلیدی برای تایید*"
+          * "سطح ریسک" should be "*سطح ریسک*"
+          * "قیمت فعلی" should be "*قیمت فعلی*"
+          * "حجم معاملات" should be "*حجم معاملات*"
+          * "نوسانات اخیر" should be "*نوسانات اخیر*"
+          * "میانگین‌های متحرک (EMAs)" should be "*میانگین‌های متحرک (EMAs)*"
+          * "اندیکاتورهای مومنتوم (RSI, MFI)" should be "*اندیکاتورهای مومنتوم (RSI, MFI)*"
+          * "قدرت روند (ADX, DI+/DI-)" should be "*قدرت روند (ADX, DI+/DI-)*"
+          * "باندهای نوسان (Bollinger Bands)" should be "*باندهای نوسان (Bollinger Bands)*"
+          * "پهنای باند" should be "*پهنای باند*"
         - **CRITICAL**: Return ONLY the JSON object - no extra text before or after
         """
 
@@ -923,7 +924,7 @@ async def generate_detailed_analysis(
         1. Language: **Persian (Farsi) only**
         2. Format: MarkdownV2 for Telegram
            - MarkdownV2 formatting guide:
-             * Bold text: Use **text** for bold formatting
+             * Bold text: Use *text* for bold formatting
              * Italic text: Use __text__ for italic formatting
              * Monospace/code: Use `text` for inline code
              * Strikethrough: Use ~~text~~ for strikethrough
@@ -937,28 +938,28 @@ async def generate_detailed_analysis(
 
         >۱. خلاصه عمومی و وضعیت فعلی:
         - در آخرین کندل [timeframe] (تاریخ [date])، قیمت {pair} با [change_percentage] بسته شده است.
-        - قیمت فعلی ([current_price]) در محدوده [position description relative to range] قرار دارد.
-        - حجم معاملات در آخرین دوره [volume] بوده است.
-        - نوسانات اخیر در سطح [volatility_percentage] قرار دارد.
+        - *قیمت فعلی* ([current_price]) در محدوده [position description relative to range] قرار دارد.
+        - *حجم معاملات* در آخرین دوره [volume] بوده است.
+        - *نوسانات اخیر* در سطح [volatility_percentage] قرار دارد.
 
         >۲. تحلیل تکنیکال جامع:
-        - میانگین‌های متحرک (EMAs):
+        - *میانگین‌های متحرک (EMAs):*
         - میانگین‌های متحرک کوتاه‌مدت (EMA_9 در [value] و EMA_21 در [value]) [trend_description] و [position_relative_to_price].
         - میانگین متحرک بلندمدت (EMA_50 در [value]) [trend_description] و [position_relative_to_price].
-        - قیمت فعلی [position_description relative to EMAs].
+        - *قیمت فعلی* [position_description relative to EMAs].
 
-        - اندیکاتورهای مومنتوم (RSI, MFI):
+        - *اندیکاتورهای مومنتوم (RSI, MFI):*
         - اندیکاتور RSI_14 با مقدار [value] در محدوده [overbought/oversold/neutral] قرار دارد و [trend_direction].
         - اندیکاتور MFI_14 با مقدار [value] در محدوده [description] قرار دارد و [trend_direction].
 
-        - قدرت روند (ADX, DI+/DI-):
+        - *قدرت روند (ADX, DI+/DI-):*
         - اندیکاتور ADX_14 با مقدار [value] نشان‌دهنده [strong/weak/ranging trend].
         - مقایسه DI+ ([value]) و DI- ([value]) نشان می‌دهد که [comparison and trend direction].
 
-        - باندهای نوسان (Bollinger Bands):
-        - قیمت فعلی ([price]) [position relative to bands] باندهای بولینگر قرار دارد.
+        - *باندهای نوسان (Bollinger Bands):*
+        - *قیمت فعلی* ([price]) [position relative to bands] باندهای بولینگر قرار دارد.
         - باند بالایی در فاصله [percentage] بالای قیمت و باند پایینی در فاصله [percentage] پایین‌تر از قیمت قرار دارد.
-        - پهنای باند [description of volatility].
+        - *پهنای باند* [description of volatility].
 
         >۳. سطوح حمایت و مقاومت کلیدی:
         - بر اساس داده‌های ارائه شده، [resistance levels description].
