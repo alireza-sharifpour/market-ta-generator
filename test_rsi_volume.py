@@ -14,6 +14,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from app.core.volume_analyzer import VolumeAnalyzer
+from app.core.volume_chart_generator import VolumeChartGenerator
 from app.utils.logging_config import setup_logging
 
 # Set up logging
@@ -135,8 +136,61 @@ async def test_rsi_enhanced_volume_analysis():
         print(f"  📈 Total suspicious periods: {len(result.suspicious_periods)}")
         print("-" * 60)
         
+        # Generate charts and reports
+        print("📊 Generating RSI-enhanced charts and reports...")
+        
+        # Create output directory
+        output_dir = Path("rsi_volume_analysis_output")
+        output_dir.mkdir(exist_ok=True)
+        
+        timestamp_str = result.analysis_timestamp.strftime("%Y%m%d_%H%M%S")
+        base_filename = f"{pair}_{timeframe}_{timestamp_str}_rsi_enhanced"
+        
+        # Initialize chart generator
+        chart_generator = VolumeChartGenerator()
+        
+        # Generate interactive HTML chart
+        chart_html = chart_generator.create_analysis_chart(result)
+        chart_file = output_dir / f"{base_filename}_chart.html"
+        with open(chart_file, 'w', encoding='utf-8') as f:
+            f.write(chart_html)
+        print(f"📈 Interactive chart saved: {chart_file}")
+        
+        # Generate full HTML report
+        report_html = chart_generator.create_analysis_report(result)
+        report_file = output_dir / f"{base_filename}_report.html"
+        with open(report_file, 'w', encoding='utf-8') as f:
+            f.write(report_html)
+        print(f"📋 Full report saved: {report_file}")
+        
+        # Save analysis data as JSON
+        import json
+        analysis_data = {
+            "pair": result.pair,
+            "timeframe": result.timeframe,
+            "analysis_timestamp": result.analysis_timestamp.isoformat(),
+            "metrics": result.metrics,
+            "suspicious_periods_count": len(result.suspicious_periods),
+            "confidence_score": result.confidence_score,
+            "alerts": result.alerts,
+            "rsi_enhanced_features": {
+                "bearish_alerts": bearish_count,
+                "bullish_alerts": bullish_count,
+                "standard_alerts": standard_count,
+                "rsi_overbought_threshold": analyzer.config.get("rsi_overbought_threshold", 70),
+                "rsi_oversold_threshold": analyzer.config.get("rsi_oversold_threshold", 30),
+            }
+        }
+        
+        json_file = output_dir / f"{base_filename}_data.json"
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(analysis_data, f, indent=2, default=str)
+        print(f"💾 Analysis data saved: {json_file}")
+        
+        print("-" * 60)
         print("✅ RSI-enhanced volume analysis test completed successfully!")
         print("🎉 The system now provides intelligent volume alerts with RSI context!")
+        print(f"📁 Output files saved in: {output_dir.absolute()}")
         print("=" * 60)
         
         return True

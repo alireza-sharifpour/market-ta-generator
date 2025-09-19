@@ -22,3 +22,7 @@ docs/
 
 # Volume analysis results
 volume_analysis_results/
+
+# RSI-enhanced analysis outputs
+synthetic_rsi_analysis_output/
+rsi_volume_analysis_output/
