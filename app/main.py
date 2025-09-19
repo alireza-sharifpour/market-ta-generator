@@ -77,6 +77,7 @@ add_rate_limiter_middleware(app, calls_per_minute=300, max_concurrent=70, burst_
 
 # Include routers
 app.include_router(analysis_router, prefix="/api/v1")
+app.include_router(volume_analysis_router, prefix="/api/v1")
 
 
 @app.get("/")

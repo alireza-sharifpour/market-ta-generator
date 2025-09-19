@@ -20,6 +20,7 @@ Market TA Generator is a sophisticated service that analyzes cryptocurrency trad
 - **🎯 Support/Resistance Detection**: Automated clustering-based level identification
 - **🤖 AI-Powered Analysis**: Avalai/Gemini integration for intelligent market insights
 - **📈 Chart Generation**: OHLCV charts with indicators and price levels
+- **📊 Volume Analysis**: Automated batch processing of top 200 pairs with suspicious volume detection
 - **🌐 Dual Language Support**: English detailed analysis + Persian summaries
 - **🔒 Security**: IP whitelisting and rate limiting
 - **📊 Monitoring**: Prometheus, Grafana, Loki integration
@@ -159,6 +160,7 @@ POST /api/v1/analyze
 }
 ```
 
+
 #### Cache Statistics
 
 ```http
@@ -271,6 +273,101 @@ The system calculates these indicators (configured in `app/config.py`):
 - **ADX**: 14 periods
 - **MFI**: 14 periods
 
+## 📊 Volume Analysis
+
+### Overview
+
+The integrated volume analysis feature automatically processes the top 200 trading pairs every 5 minutes to detect suspicious volume activity using statistical methods. This functionality was integrated from a dedicated volume analysis project to provide comprehensive market analysis alongside traditional technical indicators.
+
+### Detection Method
+
+**Mean + 4×Standard Deviation Method:**
+- Calculates rolling mean and standard deviation of volume over a 25-period window
+- Detects volume spikes when: `Volume > Mean + 4×Standard_Deviation`
+- Provides statistical significance for volume anomaly detection
+- Generates confidence scores based on spike severity
+
+### Features
+
+- **Automated Batch Processing**: Analyzes top 200 pairs every 5 minutes
+- **Statistical Volume Detection**: Mathematically rigorous spike detection
+- **Interactive Charts**: Plotly-based charts with suspicious period highlighting
+- **Confidence Scoring**: Algorithmic confidence assessment (0.0 to 1.0)
+- **Multiple Output Formats**: HTML charts, PNG images, and JSON data
+- **Alert Generation**: Automated alerts for different spike severities
+- **Cron/Systemd Integration**: Reliable scheduled execution
+
+### Setup
+
+#### Option 1: Cron Job (Recommended)
+
+```bash
+cd /path/to/market-ta-generator
+./scripts/setup_volume_analysis_cron.sh
+```
+
+#### Option 2: Systemd Service
+
+```bash
+cd /path/to/market-ta-generator
+sudo ./scripts/setup_volume_analysis_systemd.sh
+```
+
+#### Manual Execution
+
+```bash
+cd /path/to/market-ta-generator
+source venv/bin/activate
+python volume_analysis_cron.py
+```
+
+### Monitoring
+
+```bash
+# View cron logs
+tail -f logs/volume_analysis_cron.log
+
+# View systemd logs
+sudo journalctl -u volume-analysis.service -f
+
+# Check cron job status
+crontab -l | grep volume_analysis
+
+# Check systemd timer status
+sudo systemctl status volume-analysis.timer
+```
+
+### Output Files
+
+The volume analysis generates files in `./volume_analysis_results/`:
+
+- **Analysis Data** (`{pair}_{timeframe}_{timestamp}_data.json`): Raw analysis data and metrics
+- **Interactive Chart** (`{pair}_{timeframe}_{timestamp}_chart.html`): Interactive Plotly chart
+- **Full Report** (`{pair}_{timeframe}_{timestamp}_report.html`): Comprehensive HTML report
+- **Batch Summary** (`batch_summary_{timestamp}.json`): Overall batch analysis summary
+
+### Configuration
+
+Volume analysis parameters can be customized in `app/config.py`:
+
+```python
+VOLUME_ANALYSIS_CONFIG = {
+    "enable_mean_std_detection": True,  # Enable mean+std method
+    "mean_std_lookback_period": 25,     # Rolling window size
+    "mean_std_multiplier": 4.0,         # Standard deviation multiplier
+    "confidence_threshold": 0.7,        # Minimum confidence for alerts
+}
+
+# Batch processing configuration
+BATCH_CONFIG = {
+    "pairs": TOP_200_PAIRS,             # Top 200 trading pairs
+    "timeframe": "minute5",             # 5-minute timeframes
+    "periods": 50,                      # Number of periods to analyze
+    "max_concurrent": 10,               # Concurrent analysis limit
+    "output_dir": "./volume_analysis_results",
+}
+```
+
 ## 🧪 Testing
 
 ### Test Structure
@@ -288,6 +385,10 @@ test_sr_improvement.py      # Support/resistance detection
 
 # Data Tests
 test_data_only.py           # Data fetching and validation
+
+# Volume Analysis Tests
+test_volume_analysis.py     # Complete volume analysis test with outputs
+simple_volume_test.py       # Component import and initialization tests
 ```
 
 ### Running Tests
@@ -300,6 +401,10 @@ python -m pytest
 python -m pytest tests/ -v              # Unit tests
 python test_analysis.py                 # Integration test
 python test_lbank_client.py            # API client test
+
+# Volume analysis tests
+python test_volume_analysis.py         # Full volume analysis test
+python simple_volume_test.py           # Component tests
 
 # With coverage
 python -m pytest --cov=app tests/
