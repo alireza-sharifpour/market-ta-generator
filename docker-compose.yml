@@ -10,6 +10,7 @@ volumes:
   grafana_data:
   app_logs:
   redis_data:
+  volume_analysis_results:
 
 services:
   app:
@@ -58,6 +59,55 @@ services:
       - "logging=enabled"
     networks:
       - monitoring
+
+  # Volume Analysis Scheduler Service
+  volume-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.volume-scheduler
+    image: market-ta-generator-volume-scheduler
+    container_name: volume-scheduler
+    restart: unless-stopped
+    env_file:
+      - .env # Loads environment variables from .env file
+    environment:
+      - ENABLE_METRICS=true
+      - ENVIRONMENT=production
+      - LOG_FILE_MAX_MB=100          # 100MB per log file
+      - LOG_FILE_BACKUP_COUNT=10     # Keep 10 backup files (total ~1.1GB)
+    # DNS optimization for faster external API calls
+    dns:
+      - 8.8.8.8      # Google DNS (primary)
+      - 1.1.1.1      # Cloudflare DNS (secondary)
+    dns_search: []   # Remove search domains to speed up resolution
+    # Network performance optimizations (only available sysctls)
+    sysctls:
+      - net.ipv4.tcp_keepalive_time=600     # TCP keepalive settings
+      - net.ipv4.tcp_keepalive_intvl=60     # Keepalive probe interval  
+      - net.ipv4.tcp_keepalive_probes=3     # Number of keepalive probes
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"] # Simple health check
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - app_logs:/app/logs # Use named volume for logs
+      - volume_analysis_results:/app/volume_analysis_results # Volume analysis results
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "service,version"
+    labels:
+      - "service=volume-scheduler"
+      - "version=0.1.0"
+      - "logging=enabled"
+    networks:
+      - monitoring
+    depends_on:
+      - redis # Ensure Redis is available before starting
 
   # Redis for caching
   redis:
@@ -179,17 +229,17 @@ services:
     networks:
       - monitoring
 
-  # # cAdvisor for container metrics
-  # cadvisor:
-  #   image: gcr.io/cadvisor/cadvisor:latest
-  #   container_name: cadvisor
-  #   restart: unless-stopped
-  #   ports:
-  #     - "8080:8080"
-  #   volumes:
-  #     - /:/rootfs:ro
-  #     - /var/run:/var/run:rw
-  #     - /sys:/sys:ro
-  #     - /var/lib/docker/:/var/lib/docker:ro
-  #   networks:
-  #     - monitoring
+  # cAdvisor for container metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - monitoring

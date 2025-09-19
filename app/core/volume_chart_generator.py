@@ -362,3 +362,5 @@ class VolumeChartGenerator:
         """
         
         return html_content
+
+

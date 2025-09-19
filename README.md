@@ -20,7 +20,7 @@ Market TA Generator is a sophisticated service that analyzes cryptocurrency trad
 - **🎯 Support/Resistance Detection**: Automated clustering-based level identification
 - **🤖 AI-Powered Analysis**: Avalai/Gemini integration for intelligent market insights
 - **📈 Chart Generation**: OHLCV charts with indicators and price levels
-- **📊 Volume Analysis**: Automated batch processing of top 200 pairs with suspicious volume detection
+- **📊 Volume Analysis**: Docker-based automated batch processing of top 200 pairs with suspicious volume detection
 - **🌐 Dual Language Support**: English detailed analysis + Persian summaries
 - **🔒 Security**: IP whitelisting and rate limiting
 - **📊 Monitoring**: Prometheus, Grafana, Loki integration
@@ -161,6 +161,83 @@ POST /api/v1/analyze
 ```
 
 
+#### Volume Analysis Scheduler
+
+```http
+POST /api/v1/scheduler/start
+```
+
+Start the volume analysis scheduler.
+
+**Query Parameters:**
+- `schedule_type`: "interval" or "cron" (default: "interval")
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Scheduler started with interval schedule",
+  "schedule_type": "interval"
+}
+```
+
+```http
+POST /api/v1/scheduler/stop
+```
+
+Stop the volume analysis scheduler.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Scheduler stopped successfully"
+}
+```
+
+```http
+GET /api/v1/scheduler/status
+```
+
+Get current scheduler status and job information.
+
+**Response:**
+```json
+{
+  "status": "running",
+  "is_running": true,
+  "jobs": [
+    {
+      "id": "volume_analysis_job",
+      "name": "Volume Analysis Batch Job",
+      "next_run_time": "2025-01-14T10:35:00",
+      "trigger": "interval[0:05:00]"
+    }
+  ],
+  "scheduler_config": {
+    "interval_minutes": 5,
+    "max_instances": 1,
+    "coalesce": true,
+    "misfire_grace_time": 60
+  }
+}
+```
+
+```http
+POST /api/v1/scheduler/run-manual
+```
+
+Run volume analysis manually (outside of schedule).
+
+**Response:**
+```json
+{
+  "success": true,
+  "timestamp": "2025-01-14T10:30:00",
+  "type": "manual"
+}
+```
+
 #### Cache Statistics
 
 ```http
@@ -299,18 +376,31 @@ The integrated volume analysis feature automatically processes the top 200 tradi
 
 ### Setup
 
-#### Option 1: Cron Job (Recommended)
+#### Option 1: Cron Job (Simple & Reliable)
 
 ```bash
 cd /path/to/market-ta-generator
 ./scripts/setup_volume_analysis_cron.sh
 ```
 
-#### Option 2: Systemd Service
+#### Option 2: Systemd Service (System Integration)
 
 ```bash
 cd /path/to/market-ta-generator
 sudo ./scripts/setup_volume_analysis_systemd.sh
+```
+
+#### Option 3: Python APScheduler (Advanced & Integrated)
+
+```bash
+# Standalone scheduler service
+cd /path/to/market-ta-generator
+source venv/bin/activate
+python volume_scheduler_service.py --schedule-type interval --interval-minutes 5
+
+# Or as part of FastAPI application
+uvicorn app.main:app --reload
+# Then use API endpoints to control scheduler
 ```
 
 #### Manual Execution
@@ -323,6 +413,7 @@ python volume_analysis_cron.py
 
 ### Monitoring
 
+#### Cron/Systemd Monitoring
 ```bash
 # View cron logs
 tail -f logs/volume_analysis_cron.log
@@ -335,6 +426,21 @@ crontab -l | grep volume_analysis
 
 # Check systemd timer status
 sudo systemctl status volume-analysis.timer
+```
+
+#### APScheduler Monitoring
+```bash
+# Check scheduler status via API
+curl http://localhost:8000/api/v1/scheduler/status
+
+# Start scheduler via API
+curl -X POST http://localhost:8000/api/v1/scheduler/start
+
+# Stop scheduler via API
+curl -X POST http://localhost:8000/api/v1/scheduler/stop
+
+# Run manual analysis via API
+curl -X POST http://localhost:8000/api/v1/scheduler/run-manual
 ```
 
 ### Output Files

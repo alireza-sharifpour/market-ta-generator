@@ -136,6 +136,16 @@ VOLUME_ANALYSIS_CONFIG = {
     "mean_std_lookback_period": 25,     # Period for calculating mean and std (25 candles)
     "mean_std_multiplier": 4.0,         # Number of standard deviations for spike threshold
     
+    # RSI Integration for Intelligent Volume Alerts
+    "enable_rsi_volume_alerts": True,  # Enable RSI-enhanced volume alerts
+    "rsi_period": 14,                  # RSI calculation period
+    "rsi_overbought_threshold": 70,    # RSI overbought level
+    "rsi_oversold_threshold": 30,      # RSI oversold level
+    
+    # Alert Types
+    "enable_bearish_volume_alerts": True,  # Volume spike + RSI > 70 (potential top)
+    "enable_bullish_volume_alerts": True,  # Volume spike + RSI < 30 (potential bottom)
+    
     # Keep other settings for potential future use but with defaults
     "volume_spike_threshold": 2.5,
     "volume_extreme_threshold": 5.0,
