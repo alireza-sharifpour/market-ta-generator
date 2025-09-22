@@ -51,6 +51,17 @@ class VolumeSchedulerService:
             status = self.scheduler.get_scheduler_status()
             logger.info(f"Scheduler status: {status}")
             
+            # Show next run time in IRST
+            if status.get("jobs"):
+                for job in status["jobs"]:
+                    if job.get("next_run_time"):
+                        from datetime import datetime
+                        import pytz
+                        next_run = datetime.fromisoformat(job["next_run_time"].replace('Z', '+00:00'))
+                        irst_tz = pytz.timezone('Asia/Tehran')
+                        next_run_irst = next_run.astimezone(irst_tz)
+                        logger.info(f"⏰ Next analysis run: {next_run_irst.strftime('%Y-%m-%d %H:%M:%S IRST')}")
+            
             # Wait for shutdown signal
             logger.info("Service running... Press Ctrl+C to stop")
             await self.shutdown_event.wait()

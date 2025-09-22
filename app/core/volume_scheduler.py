@@ -64,7 +64,7 @@ class VolumeAnalysisScheduler:
             jobstores=jobstores,
             executors=executors,
             job_defaults=job_defaults,
-            timezone='UTC'
+            timezone='Asia/Tehran'  # IRST timezone
         )
         
         # Add event listeners for monitoring
@@ -130,19 +130,23 @@ class VolumeAnalysisScheduler:
         self._setup_scheduler()
         
         if schedule_type == "interval":
-            # Run every N minutes
-            trigger = IntervalTrigger(
-                minutes=self.schedule_config["interval_minutes"]
+            # Run every N minutes using cron for precise timing
+            interval_minutes = self.schedule_config["interval_minutes"]
+            trigger = CronTrigger(
+                minute=f"*/{interval_minutes}",  # Every N minutes
+                second=0,                        # At the start of the minute
+                timezone='Asia/Tehran'           # IRST timezone
             )
-            logger.info(f"Starting interval scheduler: every {self.schedule_config['interval_minutes']} minutes")
+            logger.info(f"Starting interval scheduler: every {interval_minutes} minutes on IRST timezone (Asia/Tehran)")
             
         elif schedule_type == "cron":
-            # Run every 5 minutes (cron-like)
+            # Run every 5 minutes (cron-like) on IRST
             trigger = CronTrigger(
-                minute="*/5",  # Every 5 minutes
-                second=0       # At the start of the minute
+                minute="*/5",                    # Every 5 minutes
+                second=0,                        # At the start of the minute
+                timezone='Asia/Tehran'           # IRST timezone
             )
-            logger.info("Starting cron scheduler: every 5 minutes")
+            logger.info("Starting cron scheduler: every 5 minutes on IRST timezone (Asia/Tehran)")
             
         else:
             raise ValueError(f"Invalid schedule_type: {schedule_type}. Use 'interval' or 'cron'")
