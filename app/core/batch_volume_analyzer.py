@@ -13,6 +13,7 @@ import aiofiles
 
 from app.core.volume_analyzer import VolumeAnalyzer
 from app.core.volume_chart_generator import VolumeChartGenerator
+from app.core.telegram_notifier import TelegramNotifier
 from app.core.volume_pairs_config import BATCH_CONFIG
 from app.utils.logging_config import setup_logging
 
@@ -28,6 +29,7 @@ class BatchVolumeAnalyzer:
         self.config = config or BATCH_CONFIG
         self.analyzer = VolumeAnalyzer()
         self.chart_generator = VolumeChartGenerator()
+        self.telegram_notifier = TelegramNotifier()
         self.results = []
         self.failed_pairs = []
         
@@ -162,6 +164,9 @@ class BatchVolumeAnalyzer:
                 
                 if result.suspicious_periods:
                     logger.info(f"✅ {pair.upper()}: {len(result.suspicious_periods)} suspicious periods (confidence: {result.confidence_score:.2%})")
+                    
+                    # Send individual Telegram notification for pairs with suspicious activity
+                    await self.telegram_notifier.send_analysis_notification(result)
                 else:
                     logger.info(f"✅ {pair.upper()}: No suspicious periods detected")
                 

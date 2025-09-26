@@ -15,6 +15,7 @@ from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 
 from app.core.batch_volume_analyzer import BatchVolumeAnalyzer
+from app.core.telegram_notifier import TelegramNotifier
 from app.utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class VolumeAnalysisScheduler:
         self.config = config or {}
         self.scheduler = None
         self.batch_analyzer = None
+        self.telegram_notifier = TelegramNotifier()
         self.is_running = False
         
         # Default configuration
@@ -108,6 +110,9 @@ class VolumeAnalysisScheduler:
                 logger.info(f"🚨 Top suspicious pairs:")
                 for i, pair in enumerate(top_pairs[:5], 1):
                     logger.info(f"  {i}. {pair['pair'].upper()}: {pair['suspicious_periods']} periods (confidence: {pair['confidence_score']:.2%})")
+            
+            # Send Telegram notification
+            await self.telegram_notifier.send_batch_summary(summary)
             
             logger.info("✅ Scheduled volume analysis completed successfully")
             return True

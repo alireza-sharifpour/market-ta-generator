@@ -1,9 +1,19 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Load Telegram-specific environment variables from .env.telegram file
+telegram_env_path = Path(__file__).parent.parent / ".env.telegram"
+if telegram_env_path.exists():
+    load_dotenv(telegram_env_path)
+    print(f"📱 Loaded Telegram configuration from {telegram_env_path}")
+else:
+    print(f"⚠️  Telegram config file not found: {telegram_env_path}")
+    print("   Create .env.telegram file with TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID")
 
 # LBank API Configuration
 LBANK_API_KEY = os.getenv("LBANK_API_KEY", "")
@@ -173,4 +183,20 @@ VOLUME_CHART_CONFIG = {
     "normal_color": "#4ECDC4",         # Teal for normal periods
     "volume_color": "#45B7D1",         # Blue for volume bars
     "obv_color": "#FFA07A",            # Light salmon for OBV line
+}
+
+# Telegram Bot Configuration
+TELEGRAM_CONFIG = {
+    "bot_token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
+    "channel_id": os.getenv("TELEGRAM_CHANNEL_ID", ""),
+    "enabled": os.getenv("TELEGRAM_ENABLED", "True").lower() == "true",
+    "send_charts": True,
+    "send_summary": True,
+    "send_alerts_only": False,  # If True, only send when suspicious periods found
+    
+    # Connection timeout settings (in seconds)
+    "connect_timeout": int(os.getenv("TELEGRAM_CONNECT_TIMEOUT", "30")),
+    "read_timeout": int(os.getenv("TELEGRAM_READ_TIMEOUT", "60")),
+    "write_timeout": int(os.getenv("TELEGRAM_WRITE_TIMEOUT", "60")),
+    "connection_pool_size": int(os.getenv("TELEGRAM_POOL_SIZE", "8")),
 }
