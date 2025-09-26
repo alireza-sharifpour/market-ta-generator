@@ -60,7 +60,7 @@ async def _get_lbank_client() -> httpx.AsyncClient:
             }
         )
         
-        logger.info("Created optimized HTTP client for LBank API")
+        logger.debug("Created optimized HTTP client for LBank API")
     
     return _lbank_client
 
@@ -70,7 +70,7 @@ async def _close_lbank_client():
     global _lbank_client
     if _lbank_client and not _lbank_client.is_closed:
         await _lbank_client.aclose()
-        logger.info("Closed LBank HTTP client")
+        logger.debug("Closed LBank HTTP client")
 
 
 class LBankAPIError(Exception):
@@ -257,7 +257,7 @@ async def fetch_ohlcv(
     # We no longer use a buffer multiplier - instead, we go back exactly 'limit' periods
     # This makes the behavior more intuitive - if you request 10 daily candles, you get data from 10 days ago
     past_timestamp = _calculate_past_timestamp(timeframe_to_use, limit_to_use)
-    logger.info(
+    logger.debug(
         f"Using past timestamp {past_timestamp} to fetch historical data (exactly {limit_to_use} {timeframe_to_use} periods ago)"
     )
 
@@ -276,7 +276,7 @@ async def fetch_ohlcv(
 
     # Handle authentication according to LBank's documentation
     if LBANK_API_KEY and LBANK_API_SECRET:
-        logger.info("Using LBank API authentication")
+        logger.debug("Using LBank API authentication")
 
         # Add required authentication parameters
         auth_params = {
@@ -293,16 +293,16 @@ async def fetch_ohlcv(
         # Add the signature to the parameters
         params = {**auth_params, "sign": sign}
 
-        logger.info("Authentication parameters added to request")
+        logger.debug("Authentication parameters added to request")
     else:
         logger.warning(
             "API key or secret missing. Using unauthenticated request (public endpoints only)."
         )
 
     # Log detailed request information for debugging
-    logger.info(f"Making request to URL: {url}")
-    # logger.info(f"With parameters: {params}")
-    logger.info(f"Headers: {headers}")
+    logger.debug(f"Making request to URL: {url}")
+    # logger.debug(f"With parameters: {params}")
+    logger.debug(f"Headers: {headers}")
 
     try:
         # Make the API request with optimized LBank client
@@ -319,8 +319,8 @@ async def fetch_ohlcv(
             raise LBankAPIError(error_msg)
 
         # Log full response for debugging
-        logger.info(f"Response status code: {response.status_code}")
-        logger.info(
+        logger.debug(f"Response status code: {response.status_code}")
+        logger.debug(
             f"Response body length: {len(response.text)}"
         )  # Only log the length to avoid huge logs
 
@@ -343,7 +343,7 @@ async def fetch_ohlcv(
                 data = response_data["data"]
                 data_length = len(data) if isinstance(data, list) else 0
 
-                logger.info(
+                logger.debug(
                     f"Successfully fetched {data_length} OHLCV entries for {pair} (v2 API)"
                 )
 
@@ -364,7 +364,7 @@ async def fetch_ohlcv(
                 sorted_data = sorted(data, key=lambda x: x[0])
                 result = sorted_data[:limit_to_use]
 
-                logger.info(
+                logger.debug(
                     f"Returning {len(result)} candles in chronological order (oldest first)"
                 )
                 return result
@@ -378,7 +378,7 @@ async def fetch_ohlcv(
             data = response_data
             data_length = len(data)
 
-            logger.info(
+            logger.debug(
                 f"Successfully fetched {data_length} OHLCV entries for {pair} (v1 API)"
             )
 
@@ -393,7 +393,7 @@ async def fetch_ohlcv(
             sorted_data = sorted(data, key=lambda x: x[0])
             result = sorted_data[:limit_to_use]
 
-            logger.info(
+            logger.debug(
                 f"Returning {len(result)} candles in chronological order (oldest first)"
             )
             return result
@@ -440,8 +440,8 @@ async def fetch_current_price(pair: str) -> Dict[str, Any]:
         "Content-Type": "application/x-www-form-urlencoded",
     }
 
-    logger.info(f"Fetching current price for {pair}")
-    logger.info(f"Making request to URL: {url}")
+    logger.debug(f"Fetching current price for {pair}")
+    logger.debug(f"Making request to URL: {url}")
 
     try:
         # Make the API request with optimized LBank client
@@ -478,7 +478,7 @@ async def fetch_current_price(pair: str) -> Dict[str, Any]:
                 if isinstance(data, list) and len(data) > 0:
                     ticker_data = data[0]
                     if isinstance(ticker_data, dict):
-                        logger.info(
+                        logger.debug(
                             f"Successfully fetched current price for {pair}: {ticker_data.get('ticker', {}).get('latest', 'N/A')}"
                         )
                         return ticker_data
@@ -487,7 +487,7 @@ async def fetch_current_price(pair: str) -> Dict[str, Any]:
                         logger.error(error_msg)
                         raise LBankAPIError(error_msg)
                 elif isinstance(data, dict):
-                    logger.info(
+                    logger.debug(
                         f"Successfully fetched current price for {pair}: {data.get('ticker', {}).get('latest', 'N/A')}"
                     )
                     return data

@@ -79,7 +79,7 @@ def process_raw_data(raw_data: List[List[Union[int, float]]]) -> DataFrame:
         # Sort by timestamp in ascending order (oldest first)
         df.sort_index(inplace=True)
 
-        logger.info(f"Processed {len(df)} data points into DataFrame")
+        logger.debug(f"Processed {len(df)} data points into DataFrame")
 
         return df
 
@@ -217,9 +217,9 @@ def add_technical_indicators(
     current_settings = INDICATOR_SETTINGS.copy()
     if settings:
         current_settings.update(settings)
-        logger.info(f"Using custom indicator settings: {settings}")
+        logger.debug(f"Using custom indicator settings: {settings}")
     else:
-        logger.info(f"Using default indicator settings: {INDICATOR_SETTINGS}")
+        logger.debug(f"Using default indicator settings: {INDICATOR_SETTINGS}")
 
     # Create a copy to avoid modifying the original DataFrame
     df_with_indicators = df.copy()
@@ -254,7 +254,7 @@ def add_technical_indicators(
 
         # Log the columns added
         added_cols = set(df_with_indicators.columns) - set(df.columns)
-        logger.info(f"Added technical indicators: {sorted(list(added_cols))}")
+        logger.debug(f"Added technical indicators: {sorted(list(added_cols))}")
 
         return df_with_indicators
 

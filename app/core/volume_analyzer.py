@@ -37,7 +37,7 @@ class VolumeAnalyzer:
     def __init__(self, config: Optional[Dict] = None):
         """Initialize the VolumeAnalyzer with configuration."""
         self.config = config or VOLUME_ANALYSIS_CONFIG
-        logger.info("VolumeAnalyzer initialized with mean+std detection method")
+        logger.debug("VolumeAnalyzer initialized with mean+std detection method")
     
     async def analyze_pair(
         self, 
@@ -60,7 +60,7 @@ class VolumeAnalyzer:
         timeframe_to_use = timeframe or DEFAULT_TIMEFRAME
         periods_to_use = periods or DEFAULT_SIZE
         
-        logger.info(f"Starting volume analysis for {pair} ({timeframe_to_use}, {periods_to_use} periods)")
+        logger.debug(f"Starting volume analysis for {pair} ({timeframe_to_use}, {periods_to_use} periods)")
         
         result = VolumeAnalysisResult()
         result.pair = pair
@@ -93,7 +93,7 @@ class VolumeAnalyzer:
             result.alerts = alerts
             result.confidence_score = confidence
             
-            logger.info(f"Analysis completed. Found {len(suspicious_periods)} suspicious periods with confidence {confidence:.2f}")
+            logger.debug(f"Analysis completed. Found {len(suspicious_periods)} suspicious periods with confidence {confidence:.2f}")
             
             return result
             
@@ -106,33 +106,54 @@ class VolumeAnalyzer:
     
     def _calculate_volume_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate volume indicators and RSI for enhanced detection."""
-        logger.info("Calculating volume indicators and RSI for enhanced detection")
+        logger.debug("Calculating volume indicators and RSI for enhanced detection")
         
         # Calculate RSI if not already present
         if "RSI_14" not in df.columns:
             from app.core.data_processor import add_technical_indicators
             df = add_technical_indicators(df)
         
-        # Mean and Standard Deviation Method (primary method)
+        # Mean and Standard Deviation Method with three-level thresholds
         if self.config.get("enable_mean_std_detection", True):
             lookback_period = self.config.get("mean_std_lookback_period", 25)
-            multiplier = self.config.get("mean_std_multiplier", 4.0)
             
-            logger.info(f"Using mean+std method with lookback={lookback_period}, multiplier={multiplier}")
+            # Get three threshold multipliers
+            low_multiplier = self.config.get("volume_threshold_low_multiplier", 2.5)
+            medium_multiplier = self.config.get("volume_threshold_medium_multiplier", 4.0)
+            high_multiplier = self.config.get("volume_threshold_high_multiplier", 6.0)
+            
+            logger.debug(f"Using three-level mean+std method with lookback={lookback_period}")
+            logger.debug(f"Thresholds: Low={low_multiplier}, Medium={medium_multiplier}, High={high_multiplier}")
             
             # Calculate rolling mean and standard deviation
             df["volume_mean"] = df["Volume"].rolling(window=lookback_period).mean()
             df["volume_std"] = df["Volume"].rolling(window=lookback_period).std()
             
-            # Calculate spike threshold: Mean + (Multiplier * Standard_Deviation)
-            df["volume_spike_threshold"] = df["volume_mean"] + (multiplier * df["volume_std"])
+            # Calculate three threshold levels
+            df["volume_threshold_low"] = df["volume_mean"] + (low_multiplier * df["volume_std"])
+            df["volume_threshold_medium"] = df["volume_mean"] + (medium_multiplier * df["volume_std"])
+            df["volume_threshold_high"] = df["volume_mean"] + (high_multiplier * df["volume_std"])
             
-            # Detect spikes: current volume > threshold
-            df["volume_spike_detected"] = df["Volume"] > df["volume_spike_threshold"]
+            # Detect volume levels
+            df["volume_level_low"] = df["Volume"] > df["volume_threshold_low"]
+            df["volume_level_medium"] = df["Volume"] > df["volume_threshold_medium"]
+            df["volume_level_high"] = df["Volume"] > df["volume_threshold_high"]
             
-            # Calculate spike ratio for analysis
-            df["volume_spike_ratio"] = df["Volume"] / df["volume_spike_threshold"]
-            df["volume_spike_ratio"] = df["volume_spike_ratio"].fillna(1.0)  # Fill NaN with 1.0
+            # Determine the highest level reached
+            df["volume_suspicious_level"] = 0  # No suspicious volume
+            df.loc[df["volume_level_low"], "volume_suspicious_level"] = 1  # Low suspicious
+            df.loc[df["volume_level_medium"], "volume_suspicious_level"] = 2  # Medium suspicious
+            df.loc[df["volume_level_high"], "volume_suspicious_level"] = 3  # High suspicious
+            
+            # Calculate spike ratios for each level
+            df["volume_spike_ratio_low"] = df["Volume"] / df["volume_threshold_low"]
+            df["volume_spike_ratio_medium"] = df["Volume"] / df["volume_threshold_medium"]
+            df["volume_spike_ratio_high"] = df["Volume"] / df["volume_threshold_high"]
+            
+            # Fill NaN values
+            df["volume_spike_ratio_low"] = df["volume_spike_ratio_low"].fillna(1.0)
+            df["volume_spike_ratio_medium"] = df["volume_spike_ratio_medium"].fillna(1.0)
+            df["volume_spike_ratio_high"] = df["volume_spike_ratio_high"].fillna(1.0)
         
         # RSI-based market condition detection
         if self.config.get("enable_rsi_volume_alerts", True):
@@ -145,39 +166,69 @@ class VolumeAnalyzer:
                 df["rsi_oversold"] = df[rsi_col] < self.config.get("rsi_oversold_threshold", 30)
                 df["rsi_neutral"] = ~(df["rsi_overbought"] | df["rsi_oversold"])
                 
-                logger.info(f"RSI analysis enabled with overbought={self.config.get('rsi_overbought_threshold', 70)}, oversold={self.config.get('rsi_oversold_threshold', 30)}")
+                logger.debug(f"RSI analysis enabled with overbought={self.config.get('rsi_overbought_threshold', 70)}, oversold={self.config.get('rsi_oversold_threshold', 30)}")
             else:
                 logger.warning(f"RSI column {rsi_col} not found in DataFrame")
         
-        logger.info("Volume indicators and RSI calculated successfully")
+        logger.debug("Volume indicators and RSI calculated successfully")
         return df
     
     def _detect_suspicious_volume(self, df: pd.DataFrame) -> List[Dict]:
-        """Detect suspicious volume patterns with RSI-enhanced intelligence."""
-        logger.info("Detecting suspicious volume patterns with RSI enhancement")
+        """Detect suspicious volume patterns with RSI-enhanced intelligence.
+        Can analyze either current timeframe only or all timeframes based on configuration."""
+        
+        # Check configuration for analysis mode
+        analyze_current_only = self.config.get("analyze_current_timeframe_only", True)
+        
+        if analyze_current_only:
+            logger.debug("Detecting suspicious volume patterns with RSI enhancement (current timeframe only)")
+        else:
+            logger.debug("Detecting suspicious volume patterns with RSI enhancement (all timeframes)")
         
         suspicious_periods = []
         
-        for i in range(len(df)):
+        if len(df) == 0:
+            logger.warning("No data available for analysis")
+            return suspicious_periods
+        
+        # Determine which timeframes to analyze
+        if analyze_current_only:
+            # Only analyze the last (current) timeframe
+            timeframes_to_analyze = [len(df) - 1]
+        else:
+            # Analyze all timeframes
+            timeframes_to_analyze = list(range(len(df)))
+        
+        # Analyze each selected timeframe
+        for i in timeframes_to_analyze:
             timestamp = df.index[i]
             alerts = []
             score = 0
             alert_type = "volume_spike"  # Default alert type
             
-            # Mean and Standard Deviation Spike Detection
-            if self.config.get("enable_mean_std_detection", True) and pd.notna(df["volume_spike_detected"].iloc[i]):
-                if df["volume_spike_detected"].iloc[i]:
-                    # Calculate base score based on spike severity
-                    spike_ratio = df["volume_spike_ratio"].iloc[i] if pd.notna(df["volume_spike_ratio"].iloc[i]) else 1.0
-                    
-                    if spike_ratio > 2.0:  # Very extreme spike
+            # Three-level Volume Spike Detection
+            if self.config.get("enable_mean_std_detection", True):
+                suspicious_level = df["volume_suspicious_level"].iloc[i] if pd.notna(df["volume_suspicious_level"].iloc[i]) else 0
+                
+                if suspicious_level > 0:
+                    # Determine severity level and base score
+                    if suspicious_level == 3:  # High suspicious volume (حجم مشکوک زیاد)
+                        severity = "high"
                         base_score = 4
-                    elif spike_ratio > 1.5:  # High spike
+                        spike_ratio = df["volume_spike_ratio_high"].iloc[i] if pd.notna(df["volume_spike_ratio_high"].iloc[i]) else 1.0
+                        threshold_used = df["volume_threshold_high"].iloc[i] if pd.notna(df["volume_threshold_high"].iloc[i]) else 0
+                    elif suspicious_level == 2:  # Medium suspicious volume (متوسط)
+                        severity = "medium"
                         base_score = 3
-                    else:  # Standard spike
+                        spike_ratio = df["volume_spike_ratio_medium"].iloc[i] if pd.notna(df["volume_spike_ratio_medium"].iloc[i]) else 1.0
+                        threshold_used = df["volume_threshold_medium"].iloc[i] if pd.notna(df["volume_threshold_medium"].iloc[i]) else 0
+                    else:  # Low suspicious volume (حجم مشکوک کم)
+                        severity = "low"
                         base_score = 2
+                        spike_ratio = df["volume_spike_ratio_low"].iloc[i] if pd.notna(df["volume_spike_ratio_low"].iloc[i]) else 1.0
+                        threshold_used = df["volume_threshold_low"].iloc[i] if pd.notna(df["volume_threshold_low"].iloc[i]) else 0
                     
-                    # RSI-Enhanced Intelligence
+                    # RSI-Enhanced Intelligence with severity level
                     if self.config.get("enable_rsi_volume_alerts", True):
                         rsi_period = self.config.get("rsi_period", 14)
                         rsi_col = f"RSI_{rsi_period}"
@@ -189,33 +240,36 @@ class VolumeAnalyzer:
                             if (self.config.get("enable_bearish_volume_alerts", True) and 
                                 current_rsi > self.config.get("rsi_overbought_threshold", 70)):
                                 
-                                alerts.append("bearish_volume_spike")
-                                alert_type = "potential_market_top"
+                                alerts.append(f"bearish_volume_spike_{severity}")
+                                alert_type = f"potential_market_top_{severity}"
                                 score = base_score + 2  # Boost score for RSI confirmation
                                 
-                                logger.info(f"🐻 Bearish alert: Volume spike + RSI {current_rsi:.1f} > 70 at {timestamp}")
+                                logger.debug(f"🐻 Bearish alert ({severity}): Volume spike + RSI {current_rsi:.1f} > 70 at {timestamp}")
                             
                             # Alert 2: Potential Market Bottom (Bullish Signal) 🐂
                             elif (self.config.get("enable_bullish_volume_alerts", True) and 
                                   current_rsi < self.config.get("rsi_oversold_threshold", 30)):
                                 
-                                alerts.append("bullish_volume_spike")
-                                alert_type = "potential_market_bottom"
+                                alerts.append(f"bullish_volume_spike_{severity}")
+                                alert_type = f"potential_market_bottom_{severity}"
                                 score = base_score + 2  # Boost score for RSI confirmation
                                 
-                                logger.info(f"🐂 Bullish alert: Volume spike + RSI {current_rsi:.1f} < 30 at {timestamp}")
+                                logger.debug(f"🐂 Bullish alert ({severity}): Volume spike + RSI {current_rsi:.1f} < 30 at {timestamp}")
                             
                             # Standard volume spike (no RSI extreme)
                             else:
-                                alerts.append("mean_std_volume_spike")
+                                alerts.append(f"volume_spike_{severity}")
+                                alert_type = f"volume_spike_{severity}"
                                 score = base_score
                         else:
                             # Fallback to standard volume spike if RSI not available
-                            alerts.append("mean_std_volume_spike")
+                            alerts.append(f"volume_spike_{severity}")
+                            alert_type = f"volume_spike_{severity}"
                             score = base_score
                     else:
                         # Standard volume spike without RSI enhancement
-                        alerts.append("mean_std_volume_spike")
+                        alerts.append(f"volume_spike_{severity}")
+                        alert_type = f"volume_spike_{severity}"
                         score = base_score
             
             # Mark as suspicious if we have any alerts
@@ -226,15 +280,20 @@ class VolumeAnalyzer:
                     "alerts": alerts,
                     "alert_type": alert_type,
                     "score": score,
+                    "severity": severity if 'severity' in locals() else "unknown",
                     "volume": df["Volume"].iloc[i],
                     "volume_mean": df["volume_mean"].iloc[i] if pd.notna(df["volume_mean"].iloc[i]) else 0,
-                    "volume_spike_threshold": df["volume_spike_threshold"].iloc[i] if pd.notna(df["volume_spike_threshold"].iloc[i]) else 0,
-                    "volume_spike_ratio": df["volume_spike_ratio"].iloc[i] if pd.notna(df["volume_spike_ratio"].iloc[i]) else 1.0,
+                    "volume_spike_threshold": threshold_used if 'threshold_used' in locals() else 0,
+                    "volume_spike_ratio": spike_ratio if 'spike_ratio' in locals() else 1.0,
                     "price": df["Close"].iloc[i],
                     "rsi": df[f"RSI_{self.config.get('rsi_period', 14)}"].iloc[i] if f"RSI_{self.config.get('rsi_period', 14)}" in df.columns else None,
                 })
         
-        logger.info(f"Found {len(suspicious_periods)} suspicious periods with RSI enhancement")
+        # Log results based on analysis mode
+        if analyze_current_only:
+            logger.debug(f"Found {len(suspicious_periods)} suspicious periods in current timeframe with RSI enhancement")
+        else:
+            logger.debug(f"Found {len(suspicious_periods)} suspicious periods across all timeframes with RSI enhancement")
         return suspicious_periods
     
     def _calculate_metrics(self, df: pd.DataFrame, suspicious_periods: List[Dict]) -> Dict[str, Any]:
@@ -299,10 +358,15 @@ class VolumeAnalyzer:
         if confidence < self.config.get("confidence_threshold", 0.7):
             return alerts
         
-        # Separate alerts by type
-        bearish_alerts = [sp for sp in suspicious_periods if "bearish_volume_spike" in sp["alerts"]]
-        bullish_alerts = [sp for sp in suspicious_periods if "bullish_volume_spike" in sp["alerts"]]
-        standard_alerts = [sp for sp in suspicious_periods if "mean_std_volume_spike" in sp["alerts"] and "bearish_volume_spike" not in sp["alerts"] and "bullish_volume_spike" not in sp["alerts"]]
+        # Separate alerts by type and severity
+        bearish_alerts = [sp for sp in suspicious_periods if any("bearish_volume_spike" in alert for alert in sp["alerts"])]
+        bullish_alerts = [sp for sp in suspicious_periods if any("bullish_volume_spike" in alert for alert in sp["alerts"])]
+        standard_alerts = [sp for sp in suspicious_periods if any("volume_spike" in alert and "bearish" not in alert and "bullish" not in alert for alert in sp["alerts"])]
+        
+        # Group by severity
+        low_severity_alerts = [sp for sp in suspicious_periods if sp.get("severity") == "low"]
+        medium_severity_alerts = [sp for sp in suspicious_periods if sp.get("severity") == "medium"]
+        high_severity_alerts = [sp for sp in suspicious_periods if sp.get("severity") == "high"]
         
         # High-level summary alert
         alerts.append({
@@ -318,13 +382,22 @@ class VolumeAnalyzer:
             rsi_values = [p.get("rsi") for p in bearish_alerts if p.get("rsi") is not None]
             avg_rsi = sum(rsi_values) / len(rsi_values) if rsi_values else 0
             
+            # Get severity breakdown
+            severity_breakdown = {}
+            for alert in bearish_alerts:
+                severity = alert.get("severity", "unknown")
+                severity_breakdown[severity] = severity_breakdown.get(severity, 0) + 1
+            
+            severity_text = ", ".join([f"{count} {sev}" for sev, count in severity_breakdown.items()])
+            
             alerts.append({
                 "type": "bearish_volume_spike",
                 "level": "critical",
-                "message": f"🐻 POTENTIAL MARKET TOP: {len(bearish_alerts)} volume spikes during overbought conditions (RSI avg: {avg_rsi:.1f}, max volume ratio: {max_ratio:.1f}x)",
+                "message": f"🐻 POTENTIAL MARKET TOP: {len(bearish_alerts)} volume spikes during overbought conditions (RSI avg: {avg_rsi:.1f}, max volume ratio: {max_ratio:.1f}x) - Severity: {severity_text}",
                 "count": len(bearish_alerts),
                 "avg_rsi": avg_rsi,
                 "max_volume_ratio": max_ratio,
+                "severity_breakdown": severity_breakdown,
                 "timestamp": datetime.now()
             })
         
@@ -334,24 +407,43 @@ class VolumeAnalyzer:
             rsi_values = [p.get("rsi") for p in bullish_alerts if p.get("rsi") is not None]
             avg_rsi = sum(rsi_values) / len(rsi_values) if rsi_values else 0
             
+            # Get severity breakdown
+            severity_breakdown = {}
+            for alert in bullish_alerts:
+                severity = alert.get("severity", "unknown")
+                severity_breakdown[severity] = severity_breakdown.get(severity, 0) + 1
+            
+            severity_text = ", ".join([f"{count} {sev}" for sev, count in severity_breakdown.items()])
+            
             alerts.append({
                 "type": "bullish_volume_spike",
                 "level": "critical",
-                "message": f"🐂 POTENTIAL MARKET BOTTOM: {len(bullish_alerts)} volume spikes during oversold conditions (RSI avg: {avg_rsi:.1f}, max volume ratio: {max_ratio:.1f}x)",
+                "message": f"🐂 POTENTIAL MARKET BOTTOM: {len(bullish_alerts)} volume spikes during oversold conditions (RSI avg: {avg_rsi:.1f}, max volume ratio: {max_ratio:.1f}x) - Severity: {severity_text}",
                 "count": len(bullish_alerts),
                 "avg_rsi": avg_rsi,
                 "max_volume_ratio": max_ratio,
+                "severity_breakdown": severity_breakdown,
                 "timestamp": datetime.now()
             })
         
         # Standard Volume Spike Alerts
         if standard_alerts:
             max_ratio = max(p.get("volume_spike_ratio", 1.0) for p in standard_alerts)
+            
+            # Get severity breakdown
+            severity_breakdown = {}
+            for alert in standard_alerts:
+                severity = alert.get("severity", "unknown")
+                severity_breakdown[severity] = severity_breakdown.get(severity, 0) + 1
+            
+            severity_text = ", ".join([f"{count} {sev}" for sev, count in severity_breakdown.items()])
+            
             alerts.append({
                 "type": "volume_spike",
                 "level": "warning" if max_ratio > 2.0 else "info",
-                "message": f"Volume spikes detected in {len(standard_alerts)} periods (max ratio: {max_ratio:.1f}x) - No RSI extremes",
+                "message": f"Volume spikes detected in {len(standard_alerts)} periods (max ratio: {max_ratio:.1f}x) - No RSI extremes - Severity: {severity_text}",
                 "count": len(standard_alerts),
+                "severity_breakdown": severity_breakdown,
                 "timestamp": datetime.now()
             })
         

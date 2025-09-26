@@ -25,11 +25,56 @@ class VolumeChartGenerator:
     def __init__(self, config: Optional[Dict] = None):
         """Initialize the chart generator with configuration."""
         self.config = config or VOLUME_CHART_CONFIG
-        logger.info("VolumeChartGenerator initialized")
+        logger.debug("VolumeChartGenerator initialized")
+    
+    def _get_severity_info(self, suspicious_periods: List[Dict]) -> Dict[str, str]:
+        """Get severity information for chart title and display."""
+        if not suspicious_periods:
+            return {
+                "title": "No Suspicious Activity Detected",
+                "severity": "none",
+                "threshold_info": ""
+            }
+        
+        # Get the highest severity level
+        severities = [period.get("severity", "unknown") for period in suspicious_periods]
+        severity_counts = {}
+        for severity in severities:
+            severity_counts[severity] = severity_counts.get(severity, 0) + 1
+        
+        # Determine primary severity (highest level)
+        severity_levels = {"low": 1, "medium": 2, "high": 3}
+        primary_severity = max(severities, key=lambda x: severity_levels.get(x, 0))
+        
+        # Create title and threshold info
+        if primary_severity == "high":
+            title = "HIGH Suspicious Volume Detected"
+            threshold_info = "Triggered: High Threshold (6.0σ)"
+        elif primary_severity == "medium":
+            title = "MEDIUM Suspicious Volume Detected"
+            threshold_info = "Triggered: Medium Threshold (4.0σ)"
+        elif primary_severity == "low":
+            title = "LOW Suspicious Volume Detected"
+            threshold_info = "Triggered: Low Threshold (2.0σ)"
+        else:
+            title = "Suspicious Volume Detected"
+            threshold_info = "Unknown Severity"
+        
+        # Add severity breakdown if multiple levels
+        if len(severity_counts) > 1:
+            breakdown = ", ".join([f"{count} {sev}" for sev, count in severity_counts.items()])
+            title += f" ({breakdown})"
+        
+        return {
+            "title": title,
+            "severity": primary_severity,
+            "threshold_info": threshold_info,
+            "severity_breakdown": severity_counts
+        }
     
     def create_analysis_chart(self, result: VolumeAnalysisResult) -> str:
         """
-        Create a comprehensive chart showing price, volume, RSI, and mean+std analysis.
+        Create a comprehensive chart showing price, volume, RSI, and three-level threshold analysis.
         
         Args:
             result: VolumeAnalysisResult containing analysis data
@@ -37,24 +82,27 @@ class VolumeChartGenerator:
         Returns:
             HTML string of the interactive chart
         """
-        logger.info(f"Creating RSI-enhanced volume analysis chart for {result.pair}")
+        logger.debug(f"Creating three-level volume analysis chart for {result.pair}")
         
         df = result.data
         suspicious_periods = result.suspicious_periods
+        
+        # Determine severity level and threshold info for title
+        severity_info = self._get_severity_info(suspicious_periods)
         
         # Create subplot layout with RSI
         fig = make_subplots(
             rows=3, cols=1,
             subplot_titles=(
                 f'{result.pair.upper()} Price Chart',
-                'Volume Analysis (Mean + 4×Std + RSI Enhanced)',
+                f'Volume Analysis - {severity_info["title"]}',
                 'RSI (14) - Market Conditions'
             ),
             vertical_spacing=0.08,
             row_heights=[0.5, 0.3, 0.2],
             specs=[
                 [{"secondary_y": False}],  # Price chart
-                [{"secondary_y": False}],  # Volume chart with mean/std lines
+                [{"secondary_y": False}],  # Volume chart with three-level thresholds
                 [{"secondary_y": False}]   # RSI chart
             ]
         )
@@ -62,8 +110,8 @@ class VolumeChartGenerator:
         # 1. Main Price Chart (Row 1)
         self._add_price_chart(fig, df, suspicious_periods, row=1)
         
-        # 2. Volume Chart with Mean+Std Analysis (Row 2)
-        self._add_volume_chart_mean_std(fig, df, suspicious_periods, row=2)
+        # 2. Volume Chart with Three-Level Thresholds (Row 2)
+        self._add_volume_chart_three_levels(fig, df, suspicious_periods, row=2)
         
         # 3. RSI Chart (Row 3)
         self._add_rsi_chart(fig, df, suspicious_periods, row=3)
@@ -88,7 +136,7 @@ class VolumeChartGenerator:
                 row=i, col=1
             )
         
-        logger.info("RSI-enhanced volume analysis chart created successfully")
+        logger.debug("RSI-enhanced volume analysis chart created successfully")
         return fig.to_html(include_plotlyjs=True, div_id="rsi-volume-analysis-chart")
     
     def create_analysis_chart_base64(self, result: VolumeAnalysisResult) -> str:
@@ -101,7 +149,7 @@ class VolumeChartGenerator:
         Returns:
             Base64 encoded PNG image
         """
-        logger.info(f"Creating volume analysis chart as base64 for {result.pair}")
+        logger.debug(f"Creating volume analysis chart as base64 for {result.pair}")
         
         df = result.data
         suspicious_periods = result.suspicious_periods
@@ -125,7 +173,7 @@ class VolumeChartGenerator:
         self._add_price_chart(fig, df, suspicious_periods, row=1)
         
         # 2. Volume Chart with Mean+Std Analysis (Row 2)
-        self._add_volume_chart_mean_std(fig, df, suspicious_periods, row=2)
+        self._add_volume_chart_three_levels(fig, df, suspicious_periods, row=2)
         
         # Update layout
         fig.update_layout(
@@ -151,7 +199,7 @@ class VolumeChartGenerator:
         img_bytes = fig.to_image(format="png", width=self.config["width"], height=self.config["height"])
         img_base64 = base64.b64encode(img_bytes).decode('utf-8')
         
-        logger.info("Volume analysis chart created as base64 PNG")
+        logger.debug("Volume analysis chart created as base64 PNG")
         return f"data:image/png;base64,{img_base64}"
     
     def _add_price_chart(self, fig, df: pd.DataFrame, suspicious_periods: List[Dict], row: int):
@@ -174,7 +222,7 @@ class VolumeChartGenerator:
                 ),
                 row=row, col=1
             )
-            logger.info("Added candlestick chart")
+            logger.debug("Added candlestick chart")
         elif 'Close' in df.columns:
             # Fallback to line chart if OHLC data is not available
             fig.add_trace(
@@ -187,7 +235,7 @@ class VolumeChartGenerator:
                 ),
                 row=row, col=1
             )
-            logger.info("Added line chart (OHLC data not available)")
+            logger.debug("Added line chart (OHLC data not available)")
         else:
             logger.warning("No price data available for chart")
             return
@@ -211,27 +259,30 @@ class VolumeChartGenerator:
         else:
             fig.update_yaxes(title_text="Price", row=row, col=1)
     
-    def _add_volume_chart_mean_std(self, fig, df: pd.DataFrame, suspicious_periods: List[Dict], row: int):
-        """Add volume chart with mean+std analysis."""
+    def _add_volume_chart_three_levels(self, fig, df: pd.DataFrame, suspicious_periods: List[Dict], row: int):
+        """Add volume chart with three-level threshold analysis."""
         
         # Check if we have valid data
         if df.empty or 'Volume' not in df.columns:
             logger.warning("No valid volume data to display")
             return
         
-        # Volume bars with color coding for RSI-enhanced suspicious periods
+        # Volume bars with color coding for severity levels
         volume_colors = []
         for i in range(len(df)):
             # Find the suspicious period for this index
             period = next((sp for sp in suspicious_periods if sp['index'] == i), None)
             if period:
-                # Color based on alert type
-                if "bearish_volume_spike" in period['alerts']:
-                    volume_colors.append("#FF4444")  # Red for bearish alerts
-                elif "bullish_volume_spike" in period['alerts']:
-                    volume_colors.append("#44FF44")  # Green for bullish alerts
+                # Color based on severity level
+                severity = period.get('severity', 'unknown')
+                if severity == 'high':
+                    volume_colors.append("#FF0000")  # Red for high severity
+                elif severity == 'medium':
+                    volume_colors.append("#FF8800")  # Orange for medium severity
+                elif severity == 'low':
+                    volume_colors.append("#FFDD00")  # Yellow for low severity
                 else:
-                    volume_colors.append("#FFFF00")  # Yellow for standard alerts
+                    volume_colors.append("#FF00FF")  # Magenta for unknown
             else:
                 volume_colors.append(self.config["volume_color"])  # Blue for normal volume
         
@@ -260,36 +311,65 @@ class VolumeChartGenerator:
                 row=row, col=1
             )
         
-        # Volume spike threshold line (Mean + 4×Std)
-        if 'volume_spike_threshold' in df.columns:
+        # Three-level threshold lines
+        if 'volume_threshold_low' in df.columns:
             fig.add_trace(
                 go.Scatter(
                     x=df.index,
-                    y=df['volume_spike_threshold'],
+                    y=df['volume_threshold_low'],
                     mode='lines',
-                    name='Spike Threshold (Mean + 4×Std)',
-                    line=dict(color='red', width=2, dash='dash'),
-                    hovertemplate='Spike Threshold: %{y:,.0f}<extra></extra>'
+                    name='Low Threshold (2.0σ)',
+                    line=dict(color='yellow', width=2, dash='dot'),
+                    hovertemplate='Low Threshold: %{y:,.0f}<extra></extra>'
                 ),
                 row=row, col=1
             )
         
-        # Add annotations for RSI-enhanced suspicious periods on volume chart
+        if 'volume_threshold_medium' in df.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index,
+                    y=df['volume_threshold_medium'],
+                    mode='lines',
+                    name='Medium Threshold (4.0σ)',
+                    line=dict(color='orange', width=2, dash='dash'),
+                    hovertemplate='Medium Threshold: %{y:,.0f}<extra></extra>'
+                ),
+                row=row, col=1
+            )
+        
+        if 'volume_threshold_high' in df.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index,
+                    y=df['volume_threshold_high'],
+                    mode='lines',
+                    name='High Threshold (6.0σ)',
+                    line=dict(color='red', width=2, dash='solid'),
+                    hovertemplate='High Threshold: %{y:,.0f}<extra></extra>'
+                ),
+                row=row, col=1
+            )
+        
+        # Add annotations for three-level suspicious periods on volume chart
         for period in suspicious_periods:
             spike_ratio = period.get('volume_spike_ratio', 1.0)
             rsi_value = period.get('rsi', None)
+            severity = period.get('severity', 'unknown')
             
-            # Create annotation text based on alert type
+            # Create annotation text with severity information
+            severity_text = severity.upper() if severity != 'unknown' else 'UNKNOWN'
+            
             if "bearish_volume_spike" in period['alerts']:
-                text = f"🐻 Bearish Alert<br>Spike: {spike_ratio:.1f}x<br>RSI: {rsi_value:.1f}" if rsi_value else f"🐻 Bearish Alert<br>Spike: {spike_ratio:.1f}x"
+                text = f"🐻 Bearish Alert<br>{severity_text} Severity<br>Spike: {spike_ratio:.1f}x<br>RSI: {rsi_value:.1f}" if rsi_value else f"🐻 Bearish Alert<br>{severity_text} Severity<br>Spike: {spike_ratio:.1f}x"
                 arrowcolor = "#FF4444"
                 bordercolor = "#FF4444"
             elif "bullish_volume_spike" in period['alerts']:
-                text = f"🐂 Bullish Alert<br>Spike: {spike_ratio:.1f}x<br>RSI: {rsi_value:.1f}" if rsi_value else f"🐂 Bullish Alert<br>Spike: {spike_ratio:.1f}x"
+                text = f"🐂 Bullish Alert<br>{severity_text} Severity<br>Spike: {spike_ratio:.1f}x<br>RSI: {rsi_value:.1f}" if rsi_value else f"🐂 Bullish Alert<br>{severity_text} Severity<br>Spike: {spike_ratio:.1f}x"
                 arrowcolor = "#44FF44"
                 bordercolor = "#44FF44"
             else:
-                text = f"📊 Volume Spike<br>Ratio: {spike_ratio:.1f}x<br>RSI: {rsi_value:.1f}" if rsi_value else f"📊 Volume Spike<br>Ratio: {spike_ratio:.1f}x"
+                text = f"📊 Volume Spike<br>{severity_text} Severity<br>Ratio: {spike_ratio:.1f}x<br>RSI: {rsi_value:.1f}" if rsi_value else f"📊 Volume Spike<br>{severity_text} Severity<br>Ratio: {spike_ratio:.1f}x"
                 arrowcolor = "#FFFF00"
                 bordercolor = "#FFFF00"
             

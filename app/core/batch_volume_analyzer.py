@@ -37,7 +37,7 @@ class BatchVolumeAnalyzer:
         self.output_dir = Path(self.config["output_dir"])
         self.output_dir.mkdir(exist_ok=True)
         
-        logger.info(f"BatchVolumeAnalyzer initialized with {len(self.config['pairs'])} pairs")
+        logger.debug(f"BatchVolumeAnalyzer initialized with {len(self.config['pairs'])} pairs")
     
     async def analyze_all_pairs(self) -> Dict[str, Any]:
         """
@@ -50,6 +50,10 @@ class BatchVolumeAnalyzer:
         logger.info(f"🚀 Starting batch volume analysis for {len(self.config['pairs'])} pairs")
         logger.info(f"Timeframe: {self.config['timeframe']}, Periods: {self.config['periods']}")
         logger.info(f"Output directory: {self.output_dir.absolute()}")
+        
+        # Clear previous results to avoid accumulation between runs
+        self.results = []
+        self.failed_pairs = []
         
         # Create semaphore for concurrent processing
         semaphore = asyncio.Semaphore(self.config["max_concurrent"])
@@ -91,7 +95,6 @@ class BatchVolumeAnalyzer:
     
     async def _analyze_single_pair(self, pair: str, index: int, total: int) -> Optional[Dict[str, Any]]:
         """Analyze a single trading pair with retry logic."""
-        logger.info(f"[{index}/{total}] Analyzing {pair.upper()}")
         
         for attempt in range(self.config["retry_attempts"]):
             try:
@@ -162,6 +165,7 @@ class BatchVolumeAnalyzer:
                     "alerts": result.alerts
                 }
                 
+                # Single line summary for successful analysis
                 if result.suspicious_periods:
                     logger.info(f"✅ {pair.upper()}: {len(result.suspicious_periods)} suspicious periods (confidence: {result.confidence_score:.2%})")
                     
@@ -173,11 +177,13 @@ class BatchVolumeAnalyzer:
                 return pair_result
                 
             except Exception as e:
-                logger.warning(f"Attempt {attempt + 1} failed for {pair}: {str(e)}")
+                # Log retry attempts as debug to reduce noise
+                logger.debug(f"Attempt {attempt + 1} failed for {pair}: {str(e)}")
                 if attempt < self.config["retry_attempts"] - 1:
                     await asyncio.sleep(self.config["retry_delay"])
                 else:
-                    logger.error(f"❌ Failed to analyze {pair} after {self.config['retry_attempts']} attempts")
+                    # Only show error details on final failure
+                    logger.error(f"❌ {pair.upper()}: Failed after {self.config['retry_attempts']} attempts - {str(e)}")
                     self.failed_pairs.append({
                         "pair": pair,
                         "error": str(e),
@@ -248,7 +254,7 @@ class BatchVolumeAnalyzer:
         async with aiofiles.open(summary_file, 'w', encoding='utf-8') as f:
             await f.write(json.dumps(summary, indent=2, default=str))
         
-        logger.info(f"📊 Batch summary saved to: {summary_file}")
+        logger.debug(f"📊 Batch summary saved to: {summary_file}")
     
     def get_recent_results(self, hours: int = 24) -> List[Dict[str, Any]]:
         """Get results from recent analysis runs."""

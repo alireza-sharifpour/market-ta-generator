@@ -144,7 +144,14 @@ VOLUME_ANALYSIS_CONFIG = {
     # Mean and Standard Deviation Method (ONLY method enabled)
     "enable_mean_std_detection": True,  # Enable mean and standard deviation spike detection
     "mean_std_lookback_period": 25,     # Period for calculating mean and std (25 candles)
-    "mean_std_multiplier": 4.0,         # Number of standard deviations for spike threshold
+    
+    # Three-level volume threshold system
+    "volume_threshold_low_multiplier": 2.0,    # Low suspicious volume
+    "volume_threshold_medium_multiplier": 4.0, # Medium suspicious volume - current default
+    "volume_threshold_high_multiplier": 6.0,   # High suspicious volume
+    
+    # Timeframe analysis mode
+    "analyze_current_timeframe_only": True,    # If True, only analyze the last timeframe; If False, analyze all timeframes
     
     # RSI Integration for Intelligent Volume Alerts
     "enable_rsi_volume_alerts": True,  # Enable RSI-enhanced volume alerts

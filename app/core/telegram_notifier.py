@@ -1,6 +1,7 @@
 """
 Telegram Notifier for sending volume analysis results to Telegram channels.
-Sends analysis summaries, alerts, and chart images.
+For suspicious volume analysis, sends only pictures with text in caption.
+For non-suspicious results, sends text summaries if enabled.
 """
 
 import asyncio
@@ -50,6 +51,7 @@ class TelegramNotifier:
     async def send_analysis_notification(self, result: VolumeAnalysisResult) -> bool:
         """
         Send analysis notification to Telegram channel.
+        For suspicious volume analysis, only sends picture with text in caption.
         
         Args:
             result: VolumeAnalysisResult containing analysis data
@@ -67,13 +69,12 @@ class TelegramNotifier:
                 logger.debug(f"No alerts for {result.pair}, skipping notification")
                 return True
             
-            # Send summary message
-            if self.config["send_summary"]:
+            # For suspicious volume analysis, send only picture with caption
+            if result.suspicious_periods:
+                await self._send_chart_with_caption(result)
+            elif self.config["send_summary"]:
+                # Only send text message if no suspicious periods and summary is enabled
                 await self._send_summary_message(result)
-            
-            # Send chart image if suspicious periods found
-            if self.config["send_charts"] and result.suspicious_periods:
-                await self._send_chart_image(result)
             
             logger.info(f"✅ Telegram notification sent for {result.pair}")
             return True
@@ -122,8 +123,45 @@ class TelegramNotifier:
             parse_mode='HTML'
         )
     
+    async def _send_chart_with_caption(self, result: VolumeAnalysisResult):
+        """Send chart image with formatted analysis text as caption."""
+        try:
+            # Generate chart as base64 PNG
+            chart_base64 = self.chart_generator.create_analysis_chart_base64(result)
+            
+            # Remove data URL prefix if present
+            if chart_base64.startswith('data:image/png;base64,'):
+                chart_base64 = chart_base64.replace('data:image/png;base64,', '')
+            
+            # Convert base64 to bytes
+            chart_bytes = base64.b64decode(chart_base64)
+            
+            # Create file-like object
+            chart_io = io.BytesIO(chart_bytes)
+            chart_io.name = f"{result.pair}_{result.timeframe}_analysis.png"
+            
+            # Format the analysis message as caption
+            caption = self._format_analysis_message(result)
+            
+            # Send photo with caption
+            await self.bot.send_photo(
+                chat_id=self.config["channel_id"],
+                photo=chart_io,
+                caption=caption,
+                parse_mode='HTML'
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to send chart with caption: {str(e)}")
+            # Fallback: send text message
+            await self.bot.send_message(
+                chat_id=self.config["channel_id"],
+                text=f"📊 Chart generation failed for {result.pair.upper()}\nError: {str(e)}",
+                parse_mode='HTML'
+            )
+    
     async def _send_chart_image(self, result: VolumeAnalysisResult):
-        """Send chart image."""
+        """Send chart image (legacy method for backward compatibility)."""
         try:
             # Generate chart as base64 PNG
             chart_base64 = self.chart_generator.create_analysis_chart_base64(result)
@@ -166,10 +204,31 @@ class TelegramNotifier:
         else:
             confidence_emoji = "ℹ️"
         
-        # Count alert types
-        bearish_count = len([sp for sp in result.suspicious_periods if "bearish_volume_spike" in sp["alerts"]])
-        bullish_count = len([sp for sp in result.suspicious_periods if "bullish_volume_spike" in sp["alerts"]])
-        standard_count = len([sp for sp in result.suspicious_periods if "mean_std_volume_spike" in sp["alerts"] and "bearish_volume_spike" not in sp["alerts"] and "bullish_volume_spike" not in sp["alerts"]])
+        # Count alert types and severity levels
+        bearish_count = len([sp for sp in result.suspicious_periods if any("bearish_volume_spike" in alert for alert in sp["alerts"])])
+        bullish_count = len([sp for sp in result.suspicious_periods if any("bullish_volume_spike" in alert for alert in sp["alerts"])])
+        standard_count = len([sp for sp in result.suspicious_periods if any("volume_spike" in alert and "bearish" not in alert and "bullish" not in alert for alert in sp["alerts"])])
+        
+        # Get severity breakdown
+        severity_counts = {}
+        threshold_info = ""
+        for period in result.suspicious_periods:
+            severity = period.get("severity", "unknown")
+            severity_counts[severity] = severity_counts.get(severity, 0) + 1
+        
+        # Determine primary severity and threshold info
+        if severity_counts:
+            severity_levels = {"low": 1, "medium": 2, "high": 3}
+            primary_severity = max(severity_counts.keys(), key=lambda x: severity_levels.get(x, 0))
+            
+            if primary_severity == "high":
+                threshold_info = "Triggered: High Threshold (6.0σ)"
+            elif primary_severity == "medium":
+                threshold_info = "Triggered: Medium Threshold (4.0σ)"
+            elif primary_severity == "low":
+                threshold_info = "Triggered: Low Threshold (2.0σ)"
+            else:
+                threshold_info = "Unknown Threshold"
         
         # Build message
         message = f"""{confidence_emoji} <b>Volume Analysis Alert</b>
@@ -185,6 +244,11 @@ class TelegramNotifier:
 • Suspicious Rate: {result.metrics.get('suspicious_percentage', 0):.1f}%"""
 
         if result.suspicious_periods:
+            # Add severity and threshold information
+            severity_text = ", ".join([f"{count} {sev.upper()}" for sev, count in severity_counts.items()])
+            message += f"\n\n🚨 <b>Severity Level:</b> {severity_text}"
+            message += f"\n📏 <b>Threshold:</b> {threshold_info}"
+            
             message += f"\n\n🚨 <b>Alert Breakdown:</b>"
             
             if bearish_count > 0:
