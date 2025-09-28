@@ -136,6 +136,9 @@ class VolumeChartGenerator:
                 row=i, col=1
             )
         
+        # Add watermark
+        self._add_watermark(fig)
+        
         logger.debug("RSI-enhanced volume analysis chart created successfully")
         return fig.to_html(include_plotlyjs=True, div_id="rsi-volume-analysis-chart")
     
@@ -154,39 +157,50 @@ class VolumeChartGenerator:
         df = result.data
         suspicious_periods = result.suspicious_periods
         
-        # Create subplot layout
+        # Determine severity level and threshold info for title
+        severity_info = self._get_severity_info(suspicious_periods)
+        
+        # Create subplot layout with RSI
         fig = make_subplots(
-            rows=2, cols=1,
+            rows=3, cols=1,
             subplot_titles=(
                 f'{result.pair.upper()} Price Chart',
-                'Volume Analysis (Mean + 4×Std Detection)'
+                f'Volume Analysis - {severity_info["title"]}',
+                'RSI (14) - Market Conditions'
             ),
-            vertical_spacing=0.12,
-            row_heights=[0.6, 0.4],
+            vertical_spacing=0.08,
+            row_heights=[0.5, 0.3, 0.2],
             specs=[
                 [{"secondary_y": False}],  # Price chart
-                [{"secondary_y": False}]   # Volume chart with mean/std lines
+                [{"secondary_y": False}],  # Volume chart with three-level thresholds
+                [{"secondary_y": False}]   # RSI chart
             ]
         )
         
         # 1. Main Price Chart (Row 1)
         self._add_price_chart(fig, df, suspicious_periods, row=1)
         
-        # 2. Volume Chart with Mean+Std Analysis (Row 2)
+        # 2. Volume Chart with Three-Level Thresholds (Row 2)
         self._add_volume_chart_three_levels(fig, df, suspicious_periods, row=2)
+        
+        # 3. RSI Chart (Row 3)
+        self._add_rsi_chart(fig, df, suspicious_periods, row=3)
         
         # Update layout
         fig.update_layout(
-            height=self.config["height"],
+            height=self.config["height"] + 200,  # Increase height for RSI subplot
             template=self.config["template"],
-            title=f"{result.pair.upper()} Volume Analysis - {result.timeframe} - Mean+4×Std Method",
+            title=f"{result.pair.upper()} RSI-Enhanced Volume Analysis - {result.timeframe} - Three-Level Thresholds + RSI Intelligence",
             showlegend=True,
             hovermode='x unified',
             xaxis_rangeslider_visible=False
         )
         
+        # Add watermark
+        self._add_watermark(fig)
+        
         # Update all x-axes to show datetime properly
-        for i in range(1, 3):
+        for i in range(1, 4):
             fig.update_xaxes(
                 type='date',
                 showgrid=True,
@@ -604,5 +618,26 @@ class VolumeChartGenerator:
         """
         
         return html_content
+    
+    def _add_watermark(self, fig, watermark_text: str = "@amirambit"):
+        """Add a watermark to the chart."""
+        try:
+            # Add watermark annotation to the figure
+            fig.add_annotation(
+                text=watermark_text,
+                xref="paper", yref="paper",
+                x=0.55, y=0.55,
+                showarrow=False,
+                font=dict(
+                    size=80,
+                    color="gray"
+                ),
+                opacity=0.2,
+                xanchor="center",
+                yanchor="middle"
+            )
+            logger.debug(f"Added watermark '{watermark_text}' to chart")
+        except Exception as e:
+            logger.warning(f"Failed to add watermark: {str(e)}")
 
 

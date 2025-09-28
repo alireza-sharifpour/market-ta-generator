@@ -83,7 +83,7 @@ class TelegramNotifier:
             logger.error(f"❌ Failed to send Telegram notification for {result.pair}: {str(e)}")
             return False
     
-    async def send_batch_summary(self, summary: Dict[str, Any]) -> bool:
+    async def send_batch_summary(self, summary: Dict[str, Any], timeframe_info: Optional[Dict[str, Any]] = None) -> bool:
         """
         Send batch analysis summary to Telegram channel.
         

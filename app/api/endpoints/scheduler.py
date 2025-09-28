@@ -51,35 +51,136 @@ def get_scheduler() -> VolumeAnalysisScheduler:
     return volume_scheduler
 
 
+@router.get("/scheduler/timeframes")
+async def get_available_timeframes() -> Dict[str, Any]:
+    """Get all available timeframes for volume analysis."""
+    try:
+        scheduler = get_scheduler()
+        timeframes = scheduler.get_available_timeframes()
+        
+        return {
+            "status": "success",
+            "available_timeframes": timeframes,
+            "total_count": len(timeframes)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get available timeframes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get available timeframes: {str(e)}")
+
+
+@router.get("/scheduler/jobs")
+async def get_active_jobs() -> Dict[str, Any]:
+    """Get all active volume analysis jobs."""
+    try:
+        scheduler = get_scheduler()
+        active_jobs = scheduler.get_active_jobs()
+        
+        return {
+            "status": "success",
+            "active_jobs": active_jobs,
+            "total_active": len(active_jobs)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get active jobs: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get active jobs: {str(e)}")
+
+
+@router.post("/scheduler/jobs/{timeframe}/start")
+async def start_timeframe_job(timeframe: str) -> Dict[str, str]:
+    """
+    Start a volume analysis job for a specific timeframe.
+    
+    Args:
+        timeframe: The timeframe to start (minute5, minute15, hour1, etc.)
+    """
+    try:
+        scheduler = get_scheduler()
+        scheduler.start_timeframe_job(timeframe)
+        
+        logger.info(f"Volume analysis job started for timeframe: {timeframe}")
+        
+        return {
+            "status": "success",
+            "message": f"Volume analysis job started for {timeframe}",
+            "timeframe": timeframe
+        }
+        
+    except ValueError as e:
+        logger.error(f"Invalid timeframe: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to start timeframe job: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start timeframe job: {str(e)}")
+
+
+@router.post("/scheduler/jobs/{timeframe}/stop")
+async def stop_timeframe_job(timeframe: str) -> Dict[str, str]:
+    """
+    Stop a volume analysis job for a specific timeframe.
+    
+    Args:
+        timeframe: The timeframe to stop
+    """
+    try:
+        scheduler = get_scheduler()
+        scheduler.stop_timeframe_job(timeframe)
+        
+        logger.info(f"Volume analysis job stopped for timeframe: {timeframe}")
+        
+        return {
+            "status": "success",
+            "message": f"Volume analysis job stopped for {timeframe}",
+            "timeframe": timeframe
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to stop timeframe job: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to stop timeframe job: {str(e)}")
+
+
+@router.post("/scheduler/jobs/stop-all")
+async def stop_all_jobs() -> Dict[str, str]:
+    """Stop all active volume analysis jobs."""
+    try:
+        scheduler = get_scheduler()
+        scheduler.stop_all_jobs()
+        
+        logger.info("All volume analysis jobs stopped")
+        
+        return {
+            "status": "success",
+            "message": "All volume analysis jobs stopped successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to stop all jobs: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to stop all jobs: {str(e)}")
+
+
+# Legacy endpoints for backward compatibility
 @router.post("/scheduler/start")
 async def start_scheduler(
     schedule_type: str = "interval",
     background_tasks: BackgroundTasks = None
 ) -> Dict[str, str]:
     """
-    Start the volume analysis scheduler.
+    Legacy: Start the volume analysis scheduler (starts 5m job).
     
     Args:
-        schedule_type: "interval" for every N minutes, "cron" for cron-like scheduling
+        schedule_type: Ignored (for backward compatibility)
     """
     try:
         scheduler = get_scheduler()
+        scheduler.start_timeframe_job("5m")
         
-        if scheduler.is_running:
-            raise HTTPException(status_code=400, detail="Scheduler is already running")
-        
-        # Start scheduler in background
-        if background_tasks:
-            background_tasks.add_task(scheduler.start_scheduler, schedule_type)
-        else:
-            scheduler.start_scheduler(schedule_type)
-        
-        logger.info(f"Volume analysis scheduler started with {schedule_type} schedule")
+        logger.info(f"Legacy: Volume analysis scheduler started (5m)")
         
         return {
             "status": "success",
-            "message": f"Scheduler started with {schedule_type} schedule",
-            "schedule_type": schedule_type
+            "message": "Scheduler started with 5m schedule (legacy mode)",
+            "schedule_type": "5m"
         }
         
     except Exception as e:
@@ -89,20 +190,16 @@ async def start_scheduler(
 
 @router.post("/scheduler/stop")
 async def stop_scheduler() -> Dict[str, str]:
-    """Stop the volume analysis scheduler."""
+    """Legacy: Stop all volume analysis jobs."""
     try:
         scheduler = get_scheduler()
+        scheduler.stop_all_jobs()
         
-        if not scheduler.is_running:
-            raise HTTPException(status_code=400, detail="Scheduler is not running")
-        
-        scheduler.stop_scheduler()
-        
-        logger.info("Volume analysis scheduler stopped")
+        logger.info("Legacy: All volume analysis jobs stopped")
         
         return {
             "status": "success",
-            "message": "Scheduler stopped successfully"
+            "message": "All jobs stopped successfully (legacy mode)"
         }
         
     except Exception as e:
