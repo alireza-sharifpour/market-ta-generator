@@ -1,5 +1,6 @@
 # Environment variables
 .env
+.env.telegram
 
 # Virtual Environment
 .venv/
@@ -19,3 +20,10 @@ docker-compose.override.yml
 docs/
 .DS_Store
 **/.DS_Store
+
+# Volume analysis results
+volume_analysis_results/
+
+# RSI-enhanced analysis outputs
+synthetic_rsi_analysis_output/
+rsi_volume_analysis_output/

@@ -1,9 +1,19 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Load Telegram-specific environment variables from .env.telegram file
+telegram_env_path = Path(__file__).parent.parent / ".env.telegram"
+if telegram_env_path.exists():
+    load_dotenv(telegram_env_path)
+    print(f"📱 Loaded Telegram configuration from {telegram_env_path}")
+else:
+    print(f"⚠️  Telegram config file not found: {telegram_env_path}")
+    print("   Create .env.telegram file with TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID")
 
 # LBank API Configuration
 LBANK_API_KEY = os.getenv("LBANK_API_KEY", "")
@@ -120,3 +130,80 @@ CACHE_PLACEHOLDERS = {
 # S/R Reclassification Configuration
 # Threshold for triggering S/R reclassification based on price movement
 SR_RECLASSIFICATION_THRESHOLD = 0.005  # 0.5% price movement triggers reclassification
+
+# Volume Analysis Configuration
+VOLUME_ANALYSIS_CONFIG = {
+    # Only enable the mean + std deviation method for suspicious volume detection
+    "enable_volume_spike_detection": False,     # Disable traditional volume spike detection
+    "enable_obv_divergence": False,             # Disable OBV divergence detection
+    "enable_vwap_deviation": False,             # Disable VWAP deviation detection
+    "enable_relative_volume": False,            # Disable relative volume detection
+    "enable_mfi_extremes": False,               # Disable MFI extremes detection
+    "enable_volume_oscillator": False,          # Disable volume oscillator detection
+    
+    # Mean and Standard Deviation Method (ONLY method enabled)
+    "enable_mean_std_detection": True,  # Enable mean and standard deviation spike detection
+    "mean_std_lookback_period": 25,     # Period for calculating mean and std (25 candles)
+    
+    # Three-level volume threshold system
+    "volume_threshold_low_multiplier": 2.0,    # Low suspicious volume
+    "volume_threshold_medium_multiplier": 4.0, # Medium suspicious volume - current default
+    "volume_threshold_high_multiplier": 6.0,   # High suspicious volume
+    
+    # Timeframe analysis mode
+    "analyze_current_timeframe_only": True,    # If True, only analyze the last timeframe; If False, analyze all timeframes
+    
+    # RSI Integration for Intelligent Volume Alerts
+    "enable_rsi_volume_alerts": True,  # Enable RSI-enhanced volume alerts
+    "rsi_period": 14,                  # RSI calculation period
+    "rsi_overbought_threshold": 70,    # RSI overbought level
+    "rsi_oversold_threshold": 30,      # RSI oversold level
+    
+    # Alert Types
+    "enable_bearish_volume_alerts": True,  # Volume spike + RSI > 70 (potential top)
+    "enable_bullish_volume_alerts": True,  # Volume spike + RSI < 30 (potential bottom)
+    
+    # Keep other settings for potential future use but with defaults
+    "volume_spike_threshold": 2.5,
+    "volume_extreme_threshold": 5.0,
+    "volume_spike_period": 20,
+    "obv_divergence_periods": 14,
+    "obv_smoothing_period": 3,
+    "vwap_deviation_threshold": 0.05,
+    "vwap_period": 20,
+    "relative_volume_lookback": 20,
+    "relative_volume_threshold": 2.0,
+    "volume_trend_period": 14,
+    "volume_trend_threshold": 0.3,
+    "min_suspicious_periods": 2,
+    "confidence_threshold": 0.7,
+}
+
+# Volume Chart Configuration
+VOLUME_CHART_CONFIG = {
+    "width": 1200,
+    "height": 800,
+    "template": "plotly_white",  # Light theme consistent with market-ta-generator
+    "show_volume_subplot": True,
+    "show_obv_subplot": False,  # Disabled to focus on mean+std method
+    "suspicious_color": "#FF6B6B",     # Red for suspicious periods
+    "normal_color": "#4ECDC4",         # Teal for normal periods
+    "volume_color": "#45B7D1",         # Blue for volume bars
+    "obv_color": "#FFA07A",            # Light salmon for OBV line
+}
+
+# Telegram Bot Configuration
+TELEGRAM_CONFIG = {
+    "bot_token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
+    "channel_id": os.getenv("TELEGRAM_CHANNEL_ID", ""),
+    "enabled": os.getenv("TELEGRAM_ENABLED", "True").lower() == "true",
+    "send_charts": True,
+    "send_summary": True,
+    "send_alerts_only": False,  # If True, only send when suspicious periods found
+    
+    # Connection timeout settings (in seconds)
+    "connect_timeout": int(os.getenv("TELEGRAM_CONNECT_TIMEOUT", "30")),
+    "read_timeout": int(os.getenv("TELEGRAM_READ_TIMEOUT", "60")),
+    "write_timeout": int(os.getenv("TELEGRAM_WRITE_TIMEOUT", "60")),
+    "connection_pool_size": int(os.getenv("TELEGRAM_POOL_SIZE", "8")),
+}

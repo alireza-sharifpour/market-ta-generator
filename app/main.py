@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.endpoints.analysis import router as analysis_router
+from app.api.endpoints.scheduler import router as scheduler_router
 from app.core.connection_manager import close_connections
 from app.middleware.ip_whitelist import add_ip_whitelist_middleware
 from app.middleware.rate_limiter import add_rate_limiter_middleware
@@ -77,6 +78,7 @@ add_rate_limiter_middleware(app, calls_per_minute=300, max_concurrent=70, burst_
 
 # Include routers
 app.include_router(analysis_router, prefix="/api/v1")
+app.include_router(scheduler_router, prefix="/api/v1")
 
 
 @app.get("/")
