@@ -15,14 +15,8 @@ from dotenv import load_dotenv
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-# Load Telegram environment variables
-telegram_env_path = project_root / ".env.telegram"
-if telegram_env_path.exists():
-    load_dotenv(telegram_env_path)
-    print(f"📱 Loaded Telegram configuration from {telegram_env_path}")
-else:
-    print(f"⚠️  Telegram config file not found: {telegram_env_path}")
-    print("   Telegram notifications will be disabled")
+# Load environment variables from .env file
+load_dotenv()
 
 from app.core.volume_scheduler import VolumeAnalysisScheduler
 from app.core.batch_volume_analyzer import BatchVolumeAnalyzer

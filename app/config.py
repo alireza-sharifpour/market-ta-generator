@@ -6,15 +6,6 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Load Telegram-specific environment variables from .env.telegram file
-telegram_env_path = Path(__file__).parent.parent / ".env.telegram"
-if telegram_env_path.exists():
-    load_dotenv(telegram_env_path)
-    print(f"📱 Loaded Telegram configuration from {telegram_env_path}")
-else:
-    print(f"⚠️  Telegram config file not found: {telegram_env_path}")
-    print("   Create .env.telegram file with TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID")
-
 # LBank API Configuration
 LBANK_API_KEY = os.getenv("LBANK_API_KEY", "")
 LBANK_API_SECRET = os.getenv("LBANK_API_SECRET", "")

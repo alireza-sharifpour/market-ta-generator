@@ -33,6 +33,8 @@ class TelegramNotifier:
         self.bot = None
         self.chart_generator = VolumeChartGenerator()
         
+        logger.info(f"TelegramNotifier initialization - enabled: {self.config['enabled']}, token present: {bool(self.config['bot_token'])}")
+        
         if self.config["enabled"] and self.config["bot_token"]:
             # Create bot with configurable timeout settings
             self.bot = Bot(
@@ -44,9 +46,12 @@ class TelegramNotifier:
                     connect_timeout=self.config.get("connect_timeout", 30),
                 )
             )
-            logger.info(f"TelegramNotifier initialized with timeouts: connect={self.config.get('connect_timeout', 30)}s, read={self.config.get('read_timeout', 60)}s, write={self.config.get('write_timeout', 60)}s")
+            logger.info(f"✅ TelegramNotifier initialized successfully with timeouts: connect={self.config.get('connect_timeout', 30)}s, read={self.config.get('read_timeout', 60)}s, write={self.config.get('write_timeout', 60)}s")
         else:
-            logger.warning("Telegram notifications disabled - missing token or disabled in config")
+            logger.warning("❌ Telegram notifications disabled - missing token or disabled in config")
+            logger.warning(f"   Config enabled: {self.config['enabled']}")
+            logger.warning(f"   Token present: {bool(self.config['bot_token'])}")
+            logger.warning(f"   Channel ID: {self.config.get('channel_id', 'Not set')}")
     
     async def send_analysis_notification(self, result: VolumeAnalysisResult) -> bool:
         """
@@ -94,11 +99,14 @@ class TelegramNotifier:
             True if sent successfully, False otherwise
         """
         if not self.bot or not self.config["enabled"]:
-            logger.debug("Telegram notifications disabled")
+            logger.warning("Telegram notifications disabled - bot not initialized or disabled in config")
+            logger.warning(f"Bot initialized: {self.bot is not None}, Config enabled: {self.config['enabled']}")
             return False
         
         try:
+            logger.info("📤 Preparing to send batch summary to Telegram...")
             message = self._format_batch_summary(summary)
+            logger.info(f"📝 Message prepared (length: {len(message)} chars)")
             
             await self.bot.send_message(
                 chat_id=self.config["channel_id"],
@@ -106,7 +114,7 @@ class TelegramNotifier:
                 parse_mode='HTML'
             )
             
-            logger.info("✅ Batch summary sent to Telegram")
+            logger.info("✅ Batch summary sent to Telegram successfully")
             return True
             
         except Exception as e:
@@ -156,7 +164,7 @@ class TelegramNotifier:
             # Fallback: send text message
             await self.bot.send_message(
                 chat_id=self.config["channel_id"],
-                text=f"📊 Chart generation failed for {result.pair.upper()}\nError: {str(e)}",
+                text=f"📊 خطا در تولید نمودار {result.pair.upper()}\nخطا: {str(e)}",
                 parse_mode='HTML'
             )
     
@@ -189,12 +197,12 @@ class TelegramNotifier:
             # Fallback: send text message
             await self.bot.send_message(
                 chat_id=self.config["channel_id"],
-                text=f"📊 Chart generation failed for {result.pair.upper()}\nError: {str(e)}",
+                text=f"📊 خطا در تولید نمودار {result.pair.upper()}\nخطا: {str(e)}",
                 parse_mode='HTML'
             )
     
     def _format_analysis_message(self, result: VolumeAnalysisResult) -> str:
-        """Format analysis result into Telegram message."""
+        """Format analysis result into Telegram message in Farsi."""
         
         # Emojis based on confidence
         if result.confidence_score >= 0.8:
@@ -204,113 +212,81 @@ class TelegramNotifier:
         else:
             confidence_emoji = "ℹ️"
         
-        # Count alert types and severity levels
+        # Count alert types
         bearish_count = len([sp for sp in result.suspicious_periods if any("bearish_volume_spike" in alert for alert in sp["alerts"])])
         bullish_count = len([sp for sp in result.suspicious_periods if any("bullish_volume_spike" in alert for alert in sp["alerts"])])
-        standard_count = len([sp for sp in result.suspicious_periods if any("volume_spike" in alert and "bearish" not in alert and "bullish" not in alert for alert in sp["alerts"])])
         
-        # Get severity breakdown
+        # Get severity level
         severity_counts = {}
-        threshold_info = ""
         for period in result.suspicious_periods:
             severity = period.get("severity", "unknown")
             severity_counts[severity] = severity_counts.get(severity, 0) + 1
         
-        # Determine primary severity and threshold info
+        # Determine primary severity
         if severity_counts:
             severity_levels = {"low": 1, "medium": 2, "high": 3}
             primary_severity = max(severity_counts.keys(), key=lambda x: severity_levels.get(x, 0))
-            
-            if primary_severity == "high":
-                threshold_info = "Triggered: High Threshold (6.0σ)"
-            elif primary_severity == "medium":
-                threshold_info = "Triggered: Medium Threshold (4.0σ)"
-            elif primary_severity == "low":
-                threshold_info = "Triggered: Low Threshold (2.0σ)"
-            else:
-                threshold_info = "Unknown Threshold"
-        
-        # Build message
-        message = f"""{confidence_emoji} <b>Volume Analysis Alert</b>
-        
-💱 <b>Pair:</b> {result.pair.upper()}
-⏰ <b>Timeframe:</b> {result.timeframe}
-📅 <b>Analysis Time:</b> {result.analysis_timestamp.strftime('%Y-%m-%d %H:%M:%S IRST')}
-🎯 <b>Confidence:</b> {result.confidence_score:.1%}
-
-📊 <b>Results:</b>
-• Total Periods: {result.metrics.get('total_periods', 0)}
-• Suspicious Periods: {len(result.suspicious_periods)}
-• Suspicious Rate: {result.metrics.get('suspicious_percentage', 0):.1f}%"""
-
-        if result.suspicious_periods:
-            # Add severity and threshold information
-            severity_text = ", ".join([f"{count} {sev.upper()}" for sev, count in severity_counts.items()])
-            message += f"\n\n🚨 <b>Severity Level:</b> {severity_text}"
-            message += f"\n📏 <b>Threshold:</b> {threshold_info}"
-            
-            message += f"\n\n🚨 <b>Alert Breakdown:</b>"
-            
-            if bearish_count > 0:
-                message += f"\n🐻 Bearish Alerts: {bearish_count} (Potential Market Tops)"
-            
-            if bullish_count > 0:
-                message += f"\n🐂 Bullish Alerts: {bullish_count} (Potential Market Bottoms)"
-            
-            if standard_count > 0:
-                message += f"\n📊 Standard Volume Spikes: {standard_count}"
-            
-            # Show max spike ratio
-            max_ratio = result.metrics.get('max_spike_ratio', 0)
-            if max_ratio > 0:
-                message += f"\n📈 Max Volume Spike: {max_ratio:.1f}x threshold"
         else:
-            message += f"\n\n✅ <b>No suspicious volume activity detected</b>"
+            primary_severity = "none"
         
-        # Add alerts summary
-        if result.alerts:
-            critical_alerts = [a for a in result.alerts if a.get('level') == 'critical']
-            if critical_alerts:
-                message += f"\n\n🚨 <b>Critical Alerts:</b> {len(critical_alerts)}"
+        # Build short Farsi message
+        if result.suspicious_periods:
+            # Alert message
+            severity_text = {"high": "بالا", "medium": "متوسط", "low": "پایین"}.get(primary_severity, "نامشخص")
+            
+            # Convert timeframe to Farsi numbers
+            timeframe_farsi = result.timeframe.replace("1h", "۱ ساعت").replace("4h", "۴ ساعت").replace("1d", "۱ روز").replace("5m", "۵ دقیقه").replace("15m", "۱۵ دقیقه").replace("30m", "۳۰ دقیقه")
+            
+            # Main message with emoji
+            message = f"ℹ️ حجم مشکوک\n\n💱 {result.pair.upper()} | ⏰ {result.timeframe}"
+            
+            # Add severity level
+            message += f"\nسطح: {severity_text}"
+            
+            # Add specific alert type if available
+            if bearish_count > 0 and bullish_count == 0:
+                message += f"\n🔴🐻 احتمال دامپ"
+            elif bullish_count > 0 and bearish_count == 0:
+                message += f"\n🟢🐂 احتمال پامپ"
+            elif bearish_count > 0 and bullish_count > 0:
+                message += f"\n🔴🐻 احتمال دامپ\n🟢🐂 احتمال پامپ"
+                
+        else:
+            # No alerts message
+            message = f"""✅ <b>تحلیل حجم</b>
+
+💱 <b>{result.pair.upper()}</b> | ⏰ {result.timeframe}
+🎯 <b>اعتماد:</b> {result.confidence_score:.0%}
+
+✅ <b>هیچ فعالیت مشکوکی یافت نشد</b>"""
         
         return message
     
     def _format_batch_summary(self, summary: Dict[str, Any]) -> str:
-        """Format batch summary into Telegram message."""
+        """Format batch summary into Telegram message in Farsi."""
         
         batch_summary = summary["batch_analysis_summary"]
         
-        message = f"""📊 <b>Batch Volume Analysis Summary</b>
+        message = f"""📊 <b>خلاصه تحلیل دسته‌ای</b>
 
-⏰ <b>Completed:</b> {datetime.fromisoformat(batch_summary['end_time']).strftime('%Y-%m-%d %H:%M:%S IRST')}
-⚡ <b>Duration:</b> {batch_summary['duration_seconds']:.1f}s
+⏰ <b>تکمیل:</b> {datetime.fromisoformat(batch_summary['end_time']).strftime('%H:%M:%S')}
+⚡ <b>مدت:</b> {batch_summary['duration_seconds']:.0f}ثانیه
 
-📈 <b>Analysis Results:</b>
-• Total Pairs: {batch_summary['total_pairs']}
-• Successful: {batch_summary['successful_pairs']}
-• Failed: {batch_summary['failed_pairs']}
-• Success Rate: {batch_summary['success_rate']:.1f}%
+📈 <b>نتایج:</b>
+• کل جفت‌ها: {batch_summary['total_pairs']}
+• موفق: {batch_summary['successful_pairs']}
+• نرخ موفقیت: {batch_summary['success_rate']:.0f}%
 
-🚨 <b>Suspicious Activity:</b>
-• Pairs with Alerts: {batch_summary['pairs_with_suspicious_periods']}
-• Suspicious Rate: {batch_summary['suspicious_rate']:.1f}%"""
+🚨 <b>فعالیت مشکوک:</b>
+• جفت‌های هشداردار: {batch_summary['pairs_with_suspicious_periods']}
+• نرخ مشکوک: {batch_summary['suspicious_rate']:.0f}%"""
 
-        if batch_summary['average_confidence_score'] > 0:
-            message += f"\n• Avg Confidence: {batch_summary['average_confidence_score']:.1%}"
-        
-        # Show top suspicious pairs
+        # Show top suspicious pairs (only top 3)
         top_pairs = summary.get("top_suspicious_pairs", [])
         if top_pairs:
-            message += f"\n\n🔝 <b>Top Suspicious Pairs:</b>"
-            for i, pair in enumerate(top_pairs[:5], 1):
-                message += f"\n{i}. {pair['pair'].upper()}: {pair['suspicious_periods']} periods ({pair['confidence_score']:.1%})"
-        
-        # Show failed pairs
-        failed_pairs = summary.get("failed_pairs", [])
-        if failed_pairs:
-            message += f"\n\n❌ <b>Failed Pairs:</b> {len(failed_pairs)}"
-            for pair in failed_pairs[:3]:
-                message += f"\n• {pair['pair'].upper()}"
+            message += f"\n\n🔝 <b>جفت‌های مشکوک:</b>"
+            for i, pair in enumerate(top_pairs[:3], 1):
+                message += f"\n{i}. {pair['pair'].upper()}: {pair['suspicious_periods']} هشدار"
         
         return message
     
@@ -328,7 +304,7 @@ class TelegramNotifier:
             # Test sending message
             await self.bot.send_message(
                 chat_id=self.config["channel_id"],
-                text="🤖 <b>Telegram Bot Test</b>\n\nBot is connected and ready to send volume analysis notifications!",
+                text="🤖 <b>تست ربات تلگرام</b>\n\nربات متصل است و آماده ارسال هشدارهای تحلیل حجم!",
                 parse_mode='HTML'
             )
             
