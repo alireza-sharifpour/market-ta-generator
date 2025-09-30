@@ -37,3 +37,23 @@ README.md
 Dockerfile
 docker-compose.yml
 .dockerignore
+
+# Virtual environment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Analysis output directories
+volume_analysis_results/
+rsi_volume_analysis_output/
+synthetic_rsi_analysis_output/
+test_experiment_results/
+test_experiment_results2/
+test_outputs/
+test_png_output/
+myx_analysis/
+myx_analysis_extended/
+myx_analysis_hourly/
