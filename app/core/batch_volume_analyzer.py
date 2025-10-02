@@ -105,50 +105,14 @@ class BatchVolumeAnalyzer:
                     periods=self.config["periods"]
                 )
                 
-                # Generate outputs
-                timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-                base_filename = f"{pair}_{self.config['timeframe']}_{timestamp_str}"
+                # Skip file saving if configured to do so
+                if not self.config.get("save_files", False):
+                    logger.debug(f"Analysis completed for {pair} - skipping file generation to save space")
+                else:
+                    # Generate outputs (original file saving logic would go here)
+                    logger.debug(f"Analysis completed for {pair} - file saving enabled but not implemented")
                 
-                # Save analysis data as JSON
-                analysis_data = {
-                    "pair": result.pair,
-                    "timeframe": result.timeframe,
-                    "analysis_timestamp": result.analysis_timestamp.isoformat(),
-                    "suspicious_periods_count": len(result.suspicious_periods),
-                    "confidence_score": result.confidence_score,
-                    "metrics": result.metrics,
-                    "alerts": result.alerts,
-                    "suspicious_periods": result.suspicious_periods
-                }
-                
-                json_file = self.output_dir / f"{base_filename}_data.json"
-                async with aiofiles.open(json_file, 'w', encoding='utf-8') as f:
-                    await f.write(json.dumps(analysis_data, indent=2, default=str))
-                
-                # Generate HTML chart if suspicious periods found
-                chart_file = None
-                if result.suspicious_periods:
-                    chart_html = self.chart_generator.create_analysis_chart(result)
-                    chart_file = self.output_dir / f"{base_filename}_chart.html"
-                    async with aiofiles.open(chart_file, 'w', encoding='utf-8') as f:
-                        await f.write(chart_html)
-                
-                # Generate PNG chart if suspicious periods found
-                png_file = None
-                if result.suspicious_periods:
-                    png_file = self.output_dir / f"{base_filename}_chart.png"
-                    self.chart_generator.create_analysis_chart_base64(result)
-                    # Note: PNG generation would need to be implemented in chart generator
-                
-                # Generate full report if suspicious periods found
-                report_file = None
-                if result.suspicious_periods:
-                    report_html = self.chart_generator.create_analysis_report(result)
-                    report_file = self.output_dir / f"{base_filename}_report.html"
-                    async with aiofiles.open(report_file, 'w', encoding='utf-8') as f:
-                        await f.write(report_html)
-                
-                # Create result summary
+                # Create result summary (no files generated)
                 pair_result = {
                     "pair": pair,
                     "success": True,
@@ -156,10 +120,10 @@ class BatchVolumeAnalyzer:
                     "confidence_score": result.confidence_score,
                     "analysis_timestamp": result.analysis_timestamp.isoformat(),
                     "files_generated": {
-                        "json": str(json_file),
-                        "chart_html": str(chart_file) if chart_file else None,
-                        "chart_png": str(png_file) if png_file else None,
-                        "report_html": str(report_file) if report_file else None,
+                        "json": None,
+                        "chart_html": None,
+                        "chart_png": None,
+                        "report_html": None,
                     },
                     "metrics": result.metrics,
                     "alerts": result.alerts
@@ -247,14 +211,8 @@ class BatchVolumeAnalyzer:
         return summary
     
     async def _save_summary(self, summary: Dict[str, Any]) -> None:
-        """Save batch analysis summary to file."""
-        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        summary_file = self.output_dir / f"batch_summary_{timestamp_str}.json"
-        
-        async with aiofiles.open(summary_file, 'w', encoding='utf-8') as f:
-            await f.write(json.dumps(summary, indent=2, default=str))
-        
-        logger.debug(f"📊 Batch summary saved to: {summary_file}")
+        """Skip saving batch analysis summary to file to save disk space."""
+        logger.debug("📊 Batch summary generated - skipping file save to conserve disk space")
     
     def get_recent_results(self, hours: int = 24) -> List[Dict[str, Any]]:
         """Get results from recent analysis runs."""
