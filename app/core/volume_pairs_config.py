@@ -216,6 +216,7 @@ BATCH_CONFIG = {
     "output_dir": "./volume_analysis_results",
     "retry_attempts": 3,     # Number of retry attempts for failed pairs
     "retry_delay": 2,        # Delay between retries in seconds
+    "save_files": False,     # Skip saving files to save disk space - only send Telegram notifications
 }
 
 
